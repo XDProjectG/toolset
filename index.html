@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>音樂工具箱</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-shell">
+        <aside class="tool-sidebar" aria-label="工具分頁">
+            <p class="app-title"><b>音樂工具箱</b></p>
+            <div class="tool-tabs" role="tablist" aria-orientation="vertical">
+                <button id="tab-stopwatch" class="tool-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-stopwatch">碼錶</button>
+                <button id="tab-midi-abc" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-midi-abc" tabindex="-1">MIDI 轉 ABC</button>
+            </div>
+        </aside>
+
+        <main class="tool-content">
+            <section id="panel-stopwatch" class="tool-panel" role="tabpanel" aria-labelledby="tab-stopwatch" data-tab-panel="tab-stopwatch">
+                <article class="stopwatch-card">
+                    <header class="card-header">
+                        <h1>碼錶</h1>
+                        <p class="card-description">可記錄圈數與總計時間，並支援開始、停止、繼續與重設。</p>
+                    </header>
+
+                    <p id="stopwatch-display" class="stopwatch-display" aria-live="polite">00:00.000</p>
+
+                    <div class="stopwatch-actions" role="group" aria-label="碼錶控制按鈕">
+                        <button id="stopwatch-secondary" type="button" disabled>重設</button>
+                        <button id="stopwatch-primary" type="button">開始</button>
+                    </div>
+
+                    <section id="laps-section" class="laps-section" hidden>
+                        <div class="laps-header" role="row">
+                            <span>圈數</span>
+                            <span>時間</span>
+                            <span>總計時間</span>
+                        </div>
+                        <ol id="laps-list" class="laps-list" aria-live="polite"></ol>
+                    </section>
+                </article>
+            </section>
+
+            <section id="panel-midi-abc" class="tool-panel" role="tabpanel" aria-labelledby="tab-midi-abc" data-tab-panel="tab-midi-abc" hidden>
+                <article class="placeholder-card midi-card">
+                    <header class="card-header">
+                        <h1>MIDI 轉 ABC Notation</h1>
+                        <p class="card-description">上傳 `.mid` / `.midi` 檔案後，工具會在瀏覽器中解析標準 MIDI 音符與節奏，並輸出可再編修的 ABC Notation 文字。</p>
+                    </header>
+
+                    <div class="control-stack">
+                        <label for="midi-file">選擇 MIDI 檔案</label>
+                        <input id="midi-file" type="file" accept=".mid,.midi,audio/midi,audio/x-midi">
+                        <p class="helper-text">目前支援常見的 PPQ（ticks per quarter note）MIDI 檔案；會讀取音符、速度、拍號與 tempo，並轉成單一 ABC 聲部。</p>
+                        <span id="midi-status" class="helper-text" role="status" aria-live="polite">尚未選擇檔案。</span>
+                    </div>
+
+                    <div class="control-stack midi-output-stack">
+                        <label for="abc-output">ABC Notation 輸出</label>
+                        <textarea id="abc-output" rows="18" placeholder="轉換完成後，ABC 內容會顯示在這裡。"></textarea>
+                        <div class="preset-buttons">
+                            <button id="copy-abc" type="button">複製 ABC</button>
+                        </div>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
