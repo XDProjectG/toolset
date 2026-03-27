@@ -1,0 +1,253 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  color: #1f2937;
+  background: #f3f4f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+}
+
+a {
+  color: #115188;
+  font-weight: 700;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+input,
+textarea,
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+  color: #1f2937;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.tool-sidebar {
+  padding: 1.5rem 1rem;
+  border-right: 1px solid #dbe2ea;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+}
+
+.app-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.tool-tabs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tool-tab {
+  text-align: left;
+  background: #f8fafc;
+}
+
+.tool-tab[aria-selected='true'] {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.tool-content {
+  padding: 2rem;
+}
+
+.tool-panel {
+  max-width: 960px;
+}
+
+.stopwatch-card,
+.placeholder-card {
+  padding: 1.5rem;
+  border: 1px solid #dbe2ea;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+}
+
+.card-header p,
+.card-header h1 {
+  margin: 0 0 0.75rem;
+}
+
+.card-header h1 {
+  font-size: 1.4rem;
+}
+
+.card-description,
+.helper-text {
+  color: #475569;
+}
+
+.stopwatch-display {
+  margin: 1.5rem 0 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.stopwatch-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.stopwatch-actions button {
+  min-width: 6.5rem;
+}
+
+.laps-section {
+  margin-top: 1.5rem;
+  border-top: 1px solid #dbe2ea;
+  padding-top: 1rem;
+}
+
+.laps-header,
+.lap-row {
+  display: grid;
+  grid-template-columns: 80px minmax(140px, 1fr) minmax(140px, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.laps-header {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+
+.laps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.lap-row {
+  padding: 0.5rem 0;
+  border-top: 1px solid #eef2ff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.lap-row-active {
+  color: #1d4ed8;
+}
+
+.control-stack {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  max-width: 520px;
+}
+
+.preset-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.preset-buttons button {
+  font-size: 0.95rem;
+}
+
+.midi-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.midi-output-stack {
+  max-width: none;
+}
+
+#abc-output {
+  min-height: 22rem;
+}
+
+@media (max-width: 820px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #dbe2ea;
+  }
+
+  .tool-tabs {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .tool-content {
+    padding: 1rem;
+  }
+
+  .stopwatch-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .laps-header,
+  .lap-row {
+    grid-template-columns: 64px minmax(100px, 1fr) minmax(100px, 1fr);
+    font-size: 0.9rem;
+  }
+}
