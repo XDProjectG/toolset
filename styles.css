@@ -375,6 +375,7 @@ textarea:focus-visible {
   .tool-sidebar {
     border-right: 0;
     border-bottom: 1px solid #dbe2ea;
+    padding: 1rem;
   }
 
   .tool-tabs {
