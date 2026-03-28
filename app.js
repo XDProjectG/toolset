@@ -12,6 +12,7 @@ const laps = [];
 let timerIdSeed = 1;
 const timers = [];
 let timerIntervalId = null;
+let timerAnchorEnabled = false;
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -31,6 +32,16 @@ function formatElapsedParts(milliseconds) {
 function formatElapsed(milliseconds) {
   const parts = formatElapsedParts(milliseconds);
   return `${parts.major}${parts.minor}`;
+}
+
+function formatNoMs(milliseconds) {
+  const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
+  const hours = Math.floor(totalMilliseconds / 3600000);
+  const minutes = Math.floor((totalMilliseconds % 3600000) / 60000);
+  const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 function getCurrentElapsed() {
@@ -293,6 +304,10 @@ function bindTabs() {
   });
 }
 
+function closeTimerSettingPanel() {
+  document.getElementById('timer-setting-panel').hidden = true;
+}
+
 function readDurationInput() {
   const hour = Number.parseInt(document.getElementById('timer-hour').value, 10);
   const minute = Number.parseInt(document.getElementById('timer-minute').value, 10);
@@ -316,7 +331,7 @@ function getOverflowInfo({ h, m, s }) {
 
 function formatTimerSetting(timer) {
   return timer.anchor
-    ? `錨定 ${formatElapsed(timer.targetMs)}`
+    ? `錨定 ${formatNoMs(timer.targetMs)}`
     : `設定 ${timer.source.h}時 ${timer.source.m}分 ${timer.source.s}秒`;
 }
 
@@ -331,7 +346,7 @@ function formatRemaining(timer, nowElapsed) {
   if (timer.overflowUnit === 'h') {
     return `${Math.ceil(remainMs / 3600000)} 時`;
   }
-  return formatElapsed(remainMs);
+  return formatNoMs(remainMs);
 }
 
 function ensureTimerSectionVisible() {
@@ -391,15 +406,6 @@ function playDoneMelody() {
   }
 }
 
-function markTimerComplete(timer) {
-  if (timer.done) {
-    return;
-  }
-  timer.done = true;
-  playDoneMelody();
-  renderTimers();
-}
-
 function updateIndependentTimers() {
   const now = Date.now();
   let changed = false;
@@ -444,64 +450,73 @@ function ensureTimerTicker() {
 
 function clearAllTimers() {
   timers.length = 0;
+  timerAnchorEnabled = false;
+  const anchorButton = document.getElementById('timer-anchor');
+  anchorButton.classList.remove('active');
+  anchorButton.setAttribute('aria-pressed', 'false');
   document.getElementById('timers-list').innerHTML = '';
   ensureTimerSectionVisible();
-  document.getElementById('timer-setting-status').textContent = '';
+  closeTimerSettingPanel();
 }
 
 function addTimer() {
-  const status = document.getElementById('timer-setting-status');
-  const anchor = document.getElementById('timer-anchor').checked;
+  const anchor = timerAnchorEnabled;
   const source = readDurationInput();
+  let cancelled = false;
 
   if (!source.hasAny) {
-    status.textContent = '未填入時分秒，已取消本次計時設定。';
-    return;
+    cancelled = true;
   }
 
   const overflowFields = getOverflowInfo(source);
   if (overflowFields.length > 1) {
-    status.textContent = '僅允許一個欄位溢出，已取消本次計時設定。';
-    return;
+    cancelled = true;
   }
 
   const totalMs = (source.h * 3600 + source.m * 60 + source.s) * 1000;
   if (totalMs <= 0) {
-    status.textContent = '請輸入大於 0 的計時數值。';
-    return;
+    cancelled = true;
   }
 
   if (anchor) {
     if (overflowFields.length > 0) {
-      status.textContent = '錨定模式不允許欄位溢出，已取消本次計時設定。';
-      return;
+      cancelled = true;
     }
     const currentElapsed = getCurrentElapsed();
     if (currentElapsed >= totalMs) {
-      status.textContent = '主碼錶已超過錨定時間，已取消本次計時設定。';
-      return;
+      cancelled = true;
     }
   }
 
-  timers.unshift({
-    id: timerIdSeed += 1,
-    source,
-    anchor,
-    overflowUnit: overflowFields[0] ?? null,
-    targetMs: anchor ? totalMs : null,
-    endAt: anchor ? null : Date.now() + totalMs,
-    done: false,
-  });
+  if (!cancelled) {
+    timers.unshift({
+      id: timerIdSeed += 1,
+      source,
+      anchor,
+      overflowUnit: overflowFields[0] ?? null,
+      targetMs: anchor ? totalMs : null,
+      endAt: anchor ? null : Date.now() + totalMs,
+      done: false,
+    });
+    renderTimers();
+    ensureTimerTicker();
+  }
 
-  status.textContent = anchor ? '已新增錨定計時器。' : '已新增獨立倒數計時器。';
-  renderTimers();
-  ensureTimerTicker();
+  closeTimerSettingPanel();
+}
+
+function addPresetTimer(minutes) {
+  document.getElementById('timer-hour').value = '';
+  document.getElementById('timer-minute').value = String(minutes);
+  document.getElementById('timer-second').value = '';
+  addTimer();
 }
 
 function bindTimerSettings() {
   const toggle = document.getElementById('timer-setting-toggle');
   const panel = document.getElementById('timer-setting-panel');
   const addButton = document.getElementById('timer-add');
+  const anchorButton = document.getElementById('timer-anchor');
 
   toggle.addEventListener('click', () => {
     panel.hidden = !panel.hidden;
@@ -509,11 +524,15 @@ function bindTimerSettings() {
 
   addButton.addEventListener('click', addTimer);
 
+  anchorButton.addEventListener('click', () => {
+    timerAnchorEnabled = !timerAnchorEnabled;
+    anchorButton.classList.toggle('active', timerAnchorEnabled);
+    anchorButton.setAttribute('aria-pressed', String(timerAnchorEnabled));
+  });
+
   document.querySelectorAll('[data-preset-minutes]').forEach((button) => {
     button.addEventListener('click', () => {
-      document.getElementById('timer-hour').value = '';
-      document.getElementById('timer-minute').value = button.dataset.presetMinutes ?? '';
-      document.getElementById('timer-second').value = '';
+      addPresetTimer(Number.parseInt(button.dataset.presetMinutes ?? '0', 10));
     });
   });
 }
