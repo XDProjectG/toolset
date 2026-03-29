@@ -24,6 +24,28 @@
                         <p class="card-description">可記錄圈數與總計時間，並支援開始、停止、繼續與重設。</p>
                     </header>
 
+                    <div class="timer-floating" aria-label="浮動計時器容器">
+                        <button id="timer-setting-toggle" type="button" class="timer-setting-toggle">設定計時器</button>
+                        <section id="timer-setting-panel" class="timer-setting-panel" hidden>
+                            <div class="timer-inline-row">
+                                <input id="timer-hour" type="number" min="0" step="1" inputmode="numeric" placeholder="時">
+                                <input id="timer-minute" type="number" min="0" step="1" inputmode="numeric" placeholder="分">
+                                <input id="timer-second" type="number" min="0" step="1" inputmode="numeric" placeholder="秒">
+                                <button id="timer-add" type="button">計時</button>
+                                <button id="timer-anchor" class="anchor-button" type="button" aria-pressed="false">錨定</button>
+                            </div>
+                            <div class="preset-buttons" aria-label="預設計時器選項">
+                                <button type="button" data-preset-minutes="20">20 分</button>
+                                <button type="button" data-preset-minutes="23">23 分</button>
+                                <button type="button" data-preset-minutes="26">26 分</button>
+                                <button type="button" data-preset-minutes="40">40 分</button>
+                            </div>
+                        </section>
+                        <section id="timers-section" class="timers-section" hidden>
+                            <ul id="timers-list" class="timers-list" aria-live="polite"></ul>
+                        </section>
+                    </div>
+
                     <p id="stopwatch-display" class="stopwatch-display" aria-live="polite"><span class="time-major">00:00</span><span class="time-minor">.000</span></p>
 
                     <div class="stopwatch-actions" role="group" aria-label="碼錶控制按鈕">
@@ -45,28 +67,6 @@
                         <ol id="laps-list" class="laps-list" aria-live="polite"></ol>
                     </section>
                 </article>
-
-                <div class="timer-floating" aria-label="浮動計時器容器">
-                    <button id="timer-setting-toggle" type="button" class="timer-setting-toggle">設定計時器</button>
-                    <section id="timer-setting-panel" class="timer-setting-panel" hidden>
-                        <div class="timer-inline-row">
-                            <input id="timer-hour" type="number" min="0" step="1" inputmode="numeric" placeholder="時">
-                            <input id="timer-minute" type="number" min="0" step="1" inputmode="numeric" placeholder="分">
-                            <input id="timer-second" type="number" min="0" step="1" inputmode="numeric" placeholder="秒">
-                            <button id="timer-add" type="button">計時</button>
-                            <button id="timer-anchor" class="anchor-button" type="button" aria-pressed="false">錨定</button>
-                        </div>
-                        <div class="preset-buttons" aria-label="預設計時器選項">
-                            <button type="button" data-preset-minutes="20">20 分</button>
-                            <button type="button" data-preset-minutes="23">23 分</button>
-                            <button type="button" data-preset-minutes="26">26 分</button>
-                            <button type="button" data-preset-minutes="40">40 分</button>
-                        </div>
-                    </section>
-                    <section id="timers-section" class="timers-section" hidden>
-                        <ul id="timers-list" class="timers-list" aria-live="polite"></ul>
-                    </section>
-                </div>
             </section>
 
             <section id="panel-midi-abc" class="tool-panel" role="tabpanel" aria-labelledby="tab-midi-abc" data-tab-panel="tab-midi-abc" hidden>

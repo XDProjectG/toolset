@@ -12,7 +12,6 @@ const laps = [];
 let timerIdSeed = 1;
 const timers = [];
 let timerIntervalId = null;
-let titleIntervalId = null;
 let timerAnchorEnabled = false;
 
 function formatElapsedParts(milliseconds) {
@@ -58,17 +57,7 @@ function updateDocumentTitle(elapsed) {
     document.title = BASE_TITLE;
     return;
   }
-  document.title = `[${formatNoMs(elapsed)}] - ${BASE_TITLE}`;
-}
-
-function ensureTitleTicker() {
-  if (titleIntervalId) {
-    return;
-  }
-
-  titleIntervalId = window.setInterval(() => {
-    updateDocumentTitle(getCurrentElapsed());
-  }, 500);
+  document.title = `[${formatElapsed(elapsed)}] - ${BASE_TITLE}`;
 }
 
 function updateStopwatchDisplay() {
@@ -210,11 +199,6 @@ function resetStopwatch() {
   stopwatchRunning = false;
   stopTicker();
 
-  if (titleIntervalId) {
-    window.clearInterval(titleIntervalId);
-    titleIntervalId = null;
-  }
-
   elapsedBeforeRun = 0;
   stopwatchStartAt = 0;
   activeLap = null;
@@ -243,7 +227,6 @@ function startOrResumeStopwatch() {
 
   setButtonsForRunning();
   startTicker();
-  ensureTitleTicker();
 }
 
 function stopStopwatch() {
