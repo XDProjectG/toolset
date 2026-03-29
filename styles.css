@@ -118,6 +118,7 @@ textarea:focus-visible {
 }
 
 .tool-panel {
+  position: relative;
   max-width: 960px;
 }
 
@@ -231,17 +232,22 @@ textarea:focus-visible {
 }
 
 .timer-item {
-  border: 1px solid #dbe2ea;
+  border: 1px solid rgba(203, 213, 225, 0.8);
   border-radius: 0.6rem;
   padding: 0.4rem 0.55rem;
   display: grid;
   width: fit-content;
   min-width: 10.5rem;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.62);
 }
 
 .timer-setting-note {
-  color: #64748b;
+  color: rgba(71, 85, 105, 0.88);
+}
+
+.timers-section strong {
+  font-size: 1.28rem;
+  color: rgba(15, 23, 42, 0.9);
 }
 
 .timer-completed {
@@ -408,8 +414,8 @@ textarea:focus-visible {
   .timer-floating {
     position: static;
     width: 100%;
-    justify-items: end;
-    margin-bottom: 0.5rem;
+    justify-items: stretch;
+    margin-top: 0.8rem;
   }
 
   .timer-setting-panel {
@@ -417,12 +423,23 @@ textarea:focus-visible {
   }
 
   .timers-section {
-    width: fit-content;
+    width: 100%;
     max-width: 100%;
   }
 
   .timer-inline-row {
     grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .timers-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
+    justify-items: stretch;
+  }
+
+  .timer-item {
+    width: 100%;
+    min-width: 0;
   }
 
   .time-major {
