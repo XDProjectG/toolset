@@ -131,7 +131,6 @@ textarea:focus-visible {
 }
 
 .stopwatch-card {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -155,14 +154,11 @@ textarea:focus-visible {
   color: #475569;
 }
 
-.timer-floating {
-  position: absolute;
-  top: 0.9rem;
-  right: 0.9rem;
+.timer-container {
+  width: min(100%, 880px);
+  margin-top: 1.2rem;
   display: grid;
-  justify-items: end;
   gap: 0.45rem;
-  z-index: 10;
 }
 
 .timer-setting-toggle {
@@ -173,7 +169,7 @@ textarea:focus-visible {
 
 .timer-setting-panel,
 .timers-section {
-  width: min(420px, calc(100vw - 3.5rem));
+  width: 100%;
   border: 1px solid #dbe2ea;
   border-radius: 0.8rem;
   background: rgba(248, 250, 252, 0.76);
@@ -220,14 +216,13 @@ textarea:focus-visible {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: inline-grid;
-  justify-items: start;
-  gap: 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 0.5rem;
 }
 
 .timers-section {
-  width: fit-content;
-  max-width: min(420px, calc(100vw - 3.5rem));
+  background: rgba(248, 250, 252, 0.56);
 }
 
 .timer-item {
@@ -235,13 +230,16 @@ textarea:focus-visible {
   border-radius: 0.6rem;
   padding: 0.4rem 0.55rem;
   display: grid;
-  width: fit-content;
-  min-width: 10.5rem;
-  background: rgba(255, 255, 255, 0.86);
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.timer-item strong {
+  font-size: 1.35rem;
 }
 
 .timer-setting-note {
-  color: #64748b;
+  color: rgba(100, 116, 139, 0.88);
 }
 
 .timer-completed {
