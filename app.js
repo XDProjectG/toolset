@@ -1,5 +1,7 @@
 import { convertMidiBufferToAbc } from './midi-to-abc.js';
 
+const BASE_TITLE = '音樂工具箱';
+
 let stopwatchRunning = false;
 let stopwatchStartAt = 0;
 let elapsedBeforeRun = 0;
@@ -7,7 +9,13 @@ let animationFrameId = null;
 let activeLap = null;
 const laps = [];
 
-function formatElapsed(milliseconds) {
+let timerIdSeed = 1;
+const timers = [];
+let timerIntervalId = null;
+let titleIntervalId = null;
+let timerAnchorEnabled = false;
+
+function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
   const hours = Math.floor(totalMilliseconds / 3600000);
   const minutes = Math.floor((totalMilliseconds % 3600000) / 60000);
@@ -17,12 +25,24 @@ function formatElapsed(milliseconds) {
   const mm = String(minutes).padStart(2, '0');
   const ss = String(seconds).padStart(2, '0');
   const mmm = String(ms).padStart(3, '0');
+  const major = hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 
-  if (hours > 0) {
-    return `${hours}:${mm}:${ss}.${mmm}`;
-  }
+  return { major, minor: `.${mmm}` };
+}
 
-  return `${mm}:${ss}.${mmm}`;
+function formatElapsed(milliseconds) {
+  const parts = formatElapsedParts(milliseconds);
+  return `${parts.major}${parts.minor}`;
+}
+
+function formatNoMs(milliseconds) {
+  const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
+  const hours = Math.floor(totalMilliseconds / 3600000);
+  const minutes = Math.floor((totalMilliseconds % 3600000) / 60000);
+  const seconds = Math.floor((totalMilliseconds % 60000) / 1000);
+  const mm = String(minutes).padStart(2, '0');
+  const ss = String(seconds).padStart(2, '0');
+  return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
 function getCurrentElapsed() {
@@ -33,16 +53,38 @@ function getCurrentElapsed() {
   return elapsedBeforeRun + (performance.now() - stopwatchStartAt);
 }
 
+function updateDocumentTitle(elapsed) {
+  if (elapsed <= 0 && !stopwatchRunning) {
+    document.title = BASE_TITLE;
+    return;
+  }
+  document.title = `[${formatNoMs(elapsed)}] - ${BASE_TITLE}`;
+}
+
+function ensureTitleTicker() {
+  if (titleIntervalId) {
+    return;
+  }
+
+  titleIntervalId = window.setInterval(() => {
+    updateDocumentTitle(getCurrentElapsed());
+  }, 500);
+}
+
 function updateStopwatchDisplay() {
   const display = document.getElementById('stopwatch-display');
   const elapsed = getCurrentElapsed();
-  display.textContent = formatElapsed(elapsed);
+  const parts = formatElapsedParts(elapsed);
+  display.innerHTML = `<span class="time-major">${parts.major}</span><span class="time-minor">${parts.minor}</span>`;
+  updateDocumentTitle(elapsed);
 
   if (activeLap) {
     const lapElapsed = elapsed - activeLap.startedAt;
     activeLap.timeCell.textContent = formatElapsed(lapElapsed);
     activeLap.totalCell.textContent = formatElapsed(elapsed);
   }
+
+  updateAnchorTimers();
 }
 
 function renderFrozenLap(lapData) {
@@ -112,7 +154,7 @@ function commitLap() {
   laps.push(completedLap);
 
   activeLap = createActiveLapRow(elapsed);
-  list.appendChild(activeLap.element);
+  list.prepend(activeLap.element);
   updateStopwatchDisplay();
 }
 
@@ -138,7 +180,9 @@ function setButtonsForInitial() {
   const primary = document.getElementById('stopwatch-primary');
   const secondary = document.getElementById('stopwatch-secondary');
   primary.textContent = '開始';
+  primary.dataset.intent = 'start';
   secondary.textContent = '重設';
+  secondary.dataset.intent = 'reset';
   secondary.disabled = true;
 }
 
@@ -146,7 +190,9 @@ function setButtonsForRunning() {
   const primary = document.getElementById('stopwatch-primary');
   const secondary = document.getElementById('stopwatch-secondary');
   primary.textContent = '停止';
+  primary.dataset.intent = 'stop';
   secondary.textContent = '圈數';
+  secondary.dataset.intent = 'lap';
   secondary.disabled = false;
 }
 
@@ -154,13 +200,20 @@ function setButtonsForPaused() {
   const primary = document.getElementById('stopwatch-primary');
   const secondary = document.getElementById('stopwatch-secondary');
   primary.textContent = '繼續';
+  primary.dataset.intent = 'start';
   secondary.textContent = '重設';
+  secondary.dataset.intent = 'reset';
   secondary.disabled = false;
 }
 
 function resetStopwatch() {
   stopwatchRunning = false;
   stopTicker();
+
+  if (titleIntervalId) {
+    window.clearInterval(titleIntervalId);
+    titleIntervalId = null;
+  }
 
   elapsedBeforeRun = 0;
   stopwatchStartAt = 0;
@@ -170,6 +223,7 @@ function resetStopwatch() {
   document.getElementById('laps-list').innerHTML = '';
   hideLapsSection();
   setButtonsForInitial();
+  clearAllTimers();
   updateStopwatchDisplay();
 }
 
@@ -184,11 +238,12 @@ function startOrResumeStopwatch() {
   if (!activeLap) {
     showLapsSection();
     activeLap = createActiveLapRow(elapsedBeforeRun);
-    document.getElementById('laps-list').appendChild(activeLap.element);
+    document.getElementById('laps-list').prepend(activeLap.element);
   }
 
   setButtonsForRunning();
   startTicker();
+  ensureTitleTicker();
 }
 
 function stopStopwatch() {
@@ -266,6 +321,239 @@ function bindTabs() {
   });
 }
 
+function closeTimerSettingPanel() {
+  document.getElementById('timer-setting-panel').hidden = true;
+}
+
+function readDurationInput() {
+  const hour = Number.parseInt(document.getElementById('timer-hour').value, 10);
+  const minute = Number.parseInt(document.getElementById('timer-minute').value, 10);
+  const second = Number.parseInt(document.getElementById('timer-second').value, 10);
+
+  const h = Number.isFinite(hour) && hour >= 0 ? hour : 0;
+  const m = Number.isFinite(minute) && minute >= 0 ? minute : 0;
+  const s = Number.isFinite(second) && second >= 0 ? second : 0;
+  const hasAny = [hour, minute, second].some((value) => Number.isFinite(value));
+
+  return { h, m, s, hasAny };
+}
+
+function getOverflowInfo({ h, m, s }) {
+  const overflowFields = [];
+  if (h > 24) overflowFields.push('h');
+  if (m > 60) overflowFields.push('m');
+  if (s > 60) overflowFields.push('s');
+  return overflowFields;
+}
+
+function formatTimerSetting(timer) {
+  return timer.anchor
+    ? `錨定 ${formatNoMs(timer.targetMs)}`
+    : `設定 ${String(timer.source.h).padStart(2, '0')}:${String(timer.source.m).padStart(2, '0')}:${String(timer.source.s).padStart(2, '0')}`;
+}
+
+function formatRemaining(timer, nowElapsed) {
+  const remainMs = timer.anchor ? Math.max(0, timer.targetMs - nowElapsed) : Math.max(0, timer.endAt - Date.now());
+  if (timer.overflowUnit === 's') {
+    return `${Math.ceil(remainMs / 1000)} 秒`;
+  }
+  if (timer.overflowUnit === 'm') {
+    return `${Math.ceil(remainMs / 60000)} 分`;
+  }
+  if (timer.overflowUnit === 'h') {
+    return `${Math.ceil(remainMs / 3600000)} 時`;
+  }
+  return formatNoMs(remainMs);
+}
+
+function ensureTimerSectionVisible() {
+  document.getElementById('timers-section').hidden = timers.length === 0;
+}
+
+function renderTimers() {
+  const list = document.getElementById('timers-list');
+  list.innerHTML = '';
+  const elapsed = getCurrentElapsed();
+
+  timers.forEach((timer) => {
+    const item = document.createElement('li');
+    item.className = `timer-item ${timer.done ? 'timer-completed' : ''}`;
+
+    const setting = document.createElement('small');
+    setting.className = 'timer-setting-note';
+    setting.textContent = formatTimerSetting(timer);
+
+    const value = document.createElement('strong');
+    value.textContent = timer.done ? '完成' : formatRemaining(timer, elapsed);
+
+    item.append(value, setting);
+    list.appendChild(item);
+  });
+
+  ensureTimerSectionVisible();
+}
+
+function toneAt(ctx, startAt, freq, duration) {
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = freq;
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(0.12, startAt + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+  oscillator.connect(gain).connect(ctx.destination);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + duration + 0.02);
+}
+
+function playDoneMelody() {
+  if (!window.AudioContext && !window.webkitAudioContext) {
+    return;
+  }
+
+  const Context = window.AudioContext || window.webkitAudioContext;
+  const ctx = new Context();
+  const base = ctx.currentTime + 0.05;
+  const phrase = [523.25, 659.25, 783.99, 659.25];
+
+  for (let loop = 0; loop < 3; loop += 1) {
+    phrase.forEach((freq, idx) => {
+      toneAt(ctx, base + loop * 0.9 + idx * 0.2, freq, 0.16);
+    });
+  }
+}
+
+function updateIndependentTimers() {
+  const now = Date.now();
+  let changed = false;
+
+  timers.forEach((timer) => {
+    if (timer.done || timer.anchor) return;
+    if (now >= timer.endAt) {
+      timer.done = true;
+      changed = true;
+      playDoneMelody();
+    }
+  });
+
+  if (changed || timers.some((timer) => !timer.done && !timer.anchor)) {
+    renderTimers();
+  }
+}
+
+function updateAnchorTimers() {
+  const elapsed = getCurrentElapsed();
+  let changed = false;
+
+  timers.forEach((timer) => {
+    if (timer.done || !timer.anchor) return;
+    if (elapsed >= timer.targetMs) {
+      timer.done = true;
+      changed = true;
+      playDoneMelody();
+    }
+  });
+
+  if (changed || timers.some((timer) => !timer.done && timer.anchor)) {
+    renderTimers();
+  }
+}
+
+function ensureTimerTicker() {
+  if (!timerIntervalId) {
+    timerIntervalId = window.setInterval(updateIndependentTimers, 120);
+  }
+}
+
+function clearAllTimers() {
+  timers.length = 0;
+  timerAnchorEnabled = false;
+  const anchorButton = document.getElementById('timer-anchor');
+  anchorButton.classList.remove('active');
+  anchorButton.setAttribute('aria-pressed', 'false');
+  document.getElementById('timers-list').innerHTML = '';
+  ensureTimerSectionVisible();
+  closeTimerSettingPanel();
+}
+
+function addTimer() {
+  const anchor = timerAnchorEnabled;
+  const source = readDurationInput();
+  let cancelled = false;
+
+  if (!source.hasAny) {
+    cancelled = true;
+  }
+
+  const overflowFields = getOverflowInfo(source);
+  if (overflowFields.length > 1) {
+    cancelled = true;
+  }
+
+  const totalMs = (source.h * 3600 + source.m * 60 + source.s) * 1000;
+  if (totalMs <= 0) {
+    cancelled = true;
+  }
+
+  if (anchor) {
+    if (overflowFields.length > 0) {
+      cancelled = true;
+    }
+    const currentElapsed = getCurrentElapsed();
+    if (currentElapsed >= totalMs) {
+      cancelled = true;
+    }
+  }
+
+  if (!cancelled) {
+    timers.unshift({
+      id: timerIdSeed += 1,
+      source,
+      anchor,
+      overflowUnit: overflowFields[0] ?? null,
+      targetMs: anchor ? totalMs : null,
+      endAt: anchor ? null : Date.now() + totalMs,
+      done: false,
+    });
+    renderTimers();
+    ensureTimerTicker();
+  }
+
+  closeTimerSettingPanel();
+}
+
+function addPresetTimer(minutes) {
+  document.getElementById('timer-hour').value = '';
+  document.getElementById('timer-minute').value = String(minutes);
+  document.getElementById('timer-second').value = '';
+  addTimer();
+}
+
+function bindTimerSettings() {
+  const toggle = document.getElementById('timer-setting-toggle');
+  const panel = document.getElementById('timer-setting-panel');
+  const addButton = document.getElementById('timer-add');
+  const anchorButton = document.getElementById('timer-anchor');
+
+  toggle.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+  });
+
+  addButton.addEventListener('click', addTimer);
+
+  anchorButton.addEventListener('click', () => {
+    timerAnchorEnabled = !timerAnchorEnabled;
+    anchorButton.classList.toggle('active', timerAnchorEnabled);
+    anchorButton.setAttribute('aria-pressed', String(timerAnchorEnabled));
+  });
+
+  document.querySelectorAll('[data-preset-minutes]').forEach((button) => {
+    button.addEventListener('click', () => {
+      addPresetTimer(Number.parseInt(button.dataset.presetMinutes ?? '0', 10));
+    });
+  });
+}
+
 async function handleMidiFileSelection(event) {
   const status = document.getElementById('midi-status');
   const output = document.getElementById('abc-output');
@@ -318,6 +606,7 @@ function bindEvents() {
   copyButton.addEventListener('click', copyAbcOutput);
 
   bindTabs();
+  bindTimerSettings();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
