@@ -13,6 +13,7 @@ let timerIdSeed = 1;
 const timers = [];
 let timerIntervalId = null;
 let timerAnchorEnabled = false;
+let titleIntervalId = null;
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -57,7 +58,7 @@ function updateDocumentTitle(elapsed) {
     document.title = BASE_TITLE;
     return;
   }
-  document.title = `[${formatElapsed(elapsed)}] - ${BASE_TITLE}`;
+  document.title = `[${formatNoMs(elapsed)}] - ${BASE_TITLE}`;
 }
 
 function updateStopwatchDisplay() {
@@ -165,6 +166,24 @@ function stopTicker() {
   }
 }
 
+function ensureTitleTicker() {
+  if (titleIntervalId) {
+    return;
+  }
+
+  titleIntervalId = window.setInterval(() => {
+    updateDocumentTitle(getCurrentElapsed());
+  }, 1000);
+}
+
+function stopTitleTicker() {
+  if (!titleIntervalId) {
+    return;
+  }
+  window.clearInterval(titleIntervalId);
+  titleIntervalId = null;
+}
+
 function setButtonsForInitial() {
   const primary = document.getElementById('stopwatch-primary');
   const secondary = document.getElementById('stopwatch-secondary');
@@ -198,6 +217,7 @@ function setButtonsForPaused() {
 function resetStopwatch() {
   stopwatchRunning = false;
   stopTicker();
+  stopTitleTicker();
 
   elapsedBeforeRun = 0;
   stopwatchStartAt = 0;
@@ -226,6 +246,7 @@ function startOrResumeStopwatch() {
   }
 
   setButtonsForRunning();
+  ensureTitleTicker();
   startTicker();
 }
 
@@ -237,6 +258,7 @@ function stopStopwatch() {
   elapsedBeforeRun = getCurrentElapsed();
   stopwatchRunning = false;
   stopTicker();
+  stopTitleTicker();
   updateStopwatchDisplay();
   setButtonsForPaused();
 }
@@ -590,6 +612,10 @@ function bindEvents() {
 
   bindTabs();
   bindTimerSettings();
+
+  document.addEventListener('visibilitychange', () => {
+    updateDocumentTitle(getCurrentElapsed());
+  });
 }
 
 window.addEventListener('DOMContentLoaded', () => {
