@@ -305,9 +305,11 @@ textarea:focus-visible {
 .laps-section {
   width: min(100%, 520px);
   margin-top: 2.9rem;
+  margin-bottom: 2.9rem;
   border-top: 1px solid #dbe2ea;
   border-bottom: 1px solid #dbe2ea;
   padding-top: 0.9rem;
+  padding-bottom: 0.3rem;
 }
 
 .laps-header,
