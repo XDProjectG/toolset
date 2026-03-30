@@ -45,6 +45,29 @@ function formatNoMs(milliseconds) {
   return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
+function formatCountdownWithOverflow(remainMs, overflowUnit) {
+  const totalSeconds = Math.max(0, Math.ceil(remainMs / 1000));
+
+  if (overflowUnit === 'h') {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  if (overflowUnit === 'm') {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }
+
+  if (overflowUnit === 's') {
+    return String(totalSeconds);
+  }
+
+  return formatNoMs(remainMs);
+}
+
 function getCurrentElapsed() {
   if (!stopwatchRunning) {
     return elapsedBeforeRun;
@@ -345,9 +368,9 @@ function readDurationInput() {
 
 function getOverflowInfo({ h, m, s }) {
   const overflowFields = [];
-  if (h > 24) overflowFields.push('h');
-  if (m > 60) overflowFields.push('m');
-  if (s > 60) overflowFields.push('s');
+  if (h > 23) overflowFields.push('h');
+  if (m > 59) overflowFields.push('m');
+  if (s > 59) overflowFields.push('s');
   return overflowFields;
 }
 
@@ -359,16 +382,7 @@ function formatTimerSetting(timer) {
 
 function formatRemaining(timer, nowElapsed) {
   const remainMs = timer.anchor ? Math.max(0, timer.targetMs - nowElapsed) : Math.max(0, timer.endAt - Date.now());
-  if (timer.overflowUnit === 's') {
-    return `${Math.ceil(remainMs / 1000)} 秒`;
-  }
-  if (timer.overflowUnit === 'm') {
-    return `${Math.ceil(remainMs / 60000)} 分`;
-  }
-  if (timer.overflowUnit === 'h') {
-    return `${Math.ceil(remainMs / 3600000)} 時`;
-  }
-  return formatNoMs(remainMs);
+  return formatCountdownWithOverflow(remainMs, timer.overflowUnit);
 }
 
 function ensureTimerSectionVisible() {
