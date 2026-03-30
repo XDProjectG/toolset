@@ -353,8 +353,8 @@ function getOverflowInfo({ h, m, s }) {
 
 function formatTimerSetting(timer) {
   return timer.anchor
-    ? `錨定 ${formatNoMs(timer.targetMs)}`
-    : `設定 ${String(timer.source.h).padStart(2, '0')}:${String(timer.source.m).padStart(2, '0')}:${String(timer.source.s).padStart(2, '0')}`;
+    ? `連動 ${formatNoMs(timer.targetMs)}`
+    : `計時 ${String(timer.source.h).padStart(2, '0')}:${String(timer.source.m).padStart(2, '0')}:${String(timer.source.s).padStart(2, '0')}`;
 }
 
 function formatRemaining(timer, nowElapsed) {
