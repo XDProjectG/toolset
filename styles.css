@@ -156,7 +156,7 @@ textarea:focus-visible {
 
 .timer-container {
   width: min(100%, 880px);
-  margin-top: 1.2rem;
+  margin-top: 2.9rem;
   display: grid;
   gap: 0.45rem;
 }
@@ -305,7 +305,6 @@ textarea:focus-visible {
 .laps-section {
   width: min(100%, 520px);
   margin-top: 2.9rem;
-  margin-bottom: 2.9rem;
   border-top: 1px solid #dbe2ea;
   border-bottom: 1px solid #dbe2ea;
   padding-top: 0.9rem;
