@@ -13,6 +13,7 @@
             <div class="tool-tabs" role="tablist" aria-orientation="vertical">
                 <button id="tab-stopwatch" class="tool-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-stopwatch">碼錶</button>
                 <button id="tab-midi-abc" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-midi-abc" tabindex="-1">MIDI 轉 ABC</button>
+                <button id="tab-piano" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-piano" tabindex="-1">鋼琴鍵盤</button>
             </div>
         </aside>
 
@@ -85,6 +86,34 @@
                         <div class="preset-buttons">
                             <button id="copy-abc" type="button">複製 ABC</button>
                         </div>
+                    </div>
+                </article>
+            </section>
+
+            <section id="panel-piano" class="tool-panel" role="tabpanel" aria-labelledby="tab-piano" data-tab-panel="tab-piano" hidden>
+                <article class="placeholder-card piano-card">
+                    <header class="card-header">
+                        <h1>88 鍵鋼琴鍵盤</h1>
+                        <p class="card-description">可用鍵盤快捷鍵與滑鼠點擊演奏。黑鍵快捷鍵顯示在上方，白鍵快捷鍵顯示在下方。</p>
+                    </header>
+
+                    <div class="control-stack piano-controls">
+                        <label for="instrument-select">樂器音色</label>
+                        <select id="instrument-select" aria-label="選擇樂器音色">
+                            <option value="0">Acoustic Grand Piano</option>
+                            <option value="4">Electric Piano 1</option>
+                            <option value="19">Church Organ</option>
+                            <option value="24">Nylon Guitar</option>
+                            <option value="40">Violin</option>
+                            <option value="56">Trumpet</option>
+                            <option value="73">Flute</option>
+                            <option value="80">Square Lead</option>
+                        </select>
+                        <span id="piano-status" class="helper-text" role="status" aria-live="polite">正在初始化音源...</span>
+                    </div>
+
+                    <div class="piano-scroll-wrap">
+                        <div id="piano-keyboard" class="piano-keyboard" aria-label="標準 88 鍵鋼琴鍵盤"></div>
                     </div>
                 </article>
             </section>
