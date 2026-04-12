@@ -1,9 +1,15 @@
 import { convertMidiBufferToAbc } from './midi-to-abc.js';
 
 const BASE_TITLE = '音樂工具箱';
-const PIANO_START_MIDI = 21;
-const PIANO_KEY_COUNT = 88;
+const PIANO_LAYOUTS = {
+  49: { startMidi: 36, endMidi: 84, label: 'C2–C6' },
+  61: { startMidi: 36, endMidi: 96, label: 'C2–C7' },
+  76: { startMidi: 28, endMidi: 103, label: 'E1–G7' },
+  88: { startMidi: 21, endMidi: 108, label: 'A0–C8' },
+  108: { startMidi: 12, endMidi: 119, label: 'C0–B8' },
+};
 const DEFAULT_VELOCITY = 0.8;
+const BLACK_KEY_RATIO = 0.62;
 const PIANO_SHORTCUTS = {
   whiteCenter: '1',
   whiteRight: '234567890-=qwertyuiop',
@@ -27,11 +33,14 @@ let timerAnchorEnabled = false;
 let titleIntervalId = null;
 let pianoAudioContext = null;
 let pianoMasterGain = null;
-let midiOutput = null;
-let activeProgram = 0;
+let toneSampler = null;
+let activeInstrument = 'tone-piano';
+let activeKeyboardSize = 88;
 const activeNotes = new Map();
 const keyElementsByMidi = new Map();
 const midiByShortcut = new Map();
+let pointerDown = false;
+let pointerActiveMidi = null;
 const replacerButtons = [];
 let editingButtonIndex = null;
 let replacerDraft = { name: '', rules: [] };
@@ -636,8 +645,13 @@ async function copyAbcOutput() {
   }
 }
 
-function midiToFrequency(midiNote) {
-  return 440 * (2 ** ((midiNote - 69) / 12));
+function getCurrentLayout() {
+  return PIANO_LAYOUTS[activeKeyboardSize] ?? PIANO_LAYOUTS[88];
+}
+
+function getCurrentLayoutBounds() {
+  const layout = getCurrentLayout();
+  return { startMidi: layout.startMidi, endMidi: layout.endMidi, keyCount: layout.endMidi - layout.startMidi + 1 };
 }
 
 function isBlackKey(midiNote) {
@@ -679,6 +693,44 @@ function createShortcutMap() {
   return map;
 }
 
+function toPitchClass(midiNote) {
+  return ((midiNote % 12) + 12) % 12;
+}
+
+function tuningRatio12Tet(midiNote) {
+  return 2 ** ((midiNote - 69) / 12);
+}
+
+function tuningRatioJustIntonation(midiNote) {
+  const ratiosByPitchClass = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 45 / 32, 3 / 2, 8 / 5, 5 / 3, 9 / 5, 15 / 8];
+  const distance = midiNote - 69;
+  const octaveShift = Math.floor(distance / 12);
+  const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
+  return pitchRatio * (2 ** octaveShift);
+}
+
+function tuningRatioPythagorean(midiNote) {
+  const ratiosByPitchClass = [1, 256 / 243, 9 / 8, 32 / 27, 81 / 64, 4 / 3, 729 / 512, 3 / 2, 128 / 81, 27 / 16, 16 / 9, 243 / 128];
+  const distance = midiNote - 69;
+  const octaveShift = Math.floor(distance / 12);
+  const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
+  return pitchRatio * (2 ** octaveShift);
+}
+
+function ratioToFrequency(ratio) {
+  return 440 * ratio;
+}
+
+function builtinFrequencyForMidi(midiNote) {
+  if (activeInstrument === 'builtin-just') {
+    return ratioToFrequency(tuningRatioJustIntonation(midiNote));
+  }
+  if (activeInstrument === 'builtin-pythagorean') {
+    return ratioToFrequency(tuningRatioPythagorean(midiNote));
+  }
+  return ratioToFrequency(tuningRatio12Tet(midiNote));
+}
+
 function findShortcutByMidi(midiNote) {
   for (const [shortcut, mappedMidi] of midiByShortcut.entries()) {
     if (mappedMidi === midiNote) {
@@ -698,30 +750,45 @@ function ensureAudioContext() {
   }
   pianoAudioContext = new Context();
   pianoMasterGain = pianoAudioContext.createGain();
-  pianoMasterGain.gain.value = 0.22;
+  pianoMasterGain.gain.value = 0.46;
   pianoMasterGain.connect(pianoAudioContext.destination);
   return pianoAudioContext;
 }
 
-async function initMidiOutput() {
+async function initToneSampler() {
   const status = document.getElementById('piano-status');
-  if (!navigator.requestMIDIAccess) {
-    status.textContent = '此瀏覽器不支援 Web MIDI，改用內建合成音源。';
+  if (!window.Tone) {
+    status.textContent = 'Tone.js 載入失敗，請改用內建合成音源。';
     return;
   }
+  toneSampler = new window.Tone.Sampler({
+    urls: {
+      C1: 'C1.mp3',
+      A1: 'A1.mp3',
+      C2: 'C2.mp3',
+      A2: 'A2.mp3',
+      C3: 'C3.mp3',
+      A3: 'A3.mp3',
+      C4: 'C4.mp3',
+      A4: 'A4.mp3',
+      C5: 'C5.mp3',
+      A5: 'A5.mp3',
+      C6: 'C6.mp3',
+      A6: 'A6.mp3',
+      C7: 'C7.mp3',
+      A7: 'A7.mp3',
+      C8: 'C8.mp3',
+    },
+    baseUrl: 'https://tonejs.github.io/audio/salamander/',
+    onload: () => {
+      if (activeInstrument === 'tone-piano') {
+        status.textContent = 'Tone.js 鋼琴音源已就緒（Salamander 取樣）。';
+      }
+    },
+  }).toDestination();
 
-  try {
-    const access = await navigator.requestMIDIAccess();
-    const outputs = [...access.outputs.values()];
-    midiOutput = outputs[0] ?? null;
-    if (midiOutput) {
-      status.textContent = `使用 MIDI 音源：${midiOutput.name}`;
-      midiOutput.send([0xC0, activeProgram]);
-      return;
-    }
-    status.textContent = '找不到可用 MIDI 輸出裝置，改用內建合成音源。';
-  } catch (_error) {
-    status.textContent = '無法啟用 MIDI 音源，改用內建合成音源。';
+  if (activeInstrument === 'tone-piano') {
+    status.textContent = '正在載入 Tone.js 鋼琴音源...';
   }
 }
 
@@ -734,9 +801,9 @@ function noteOnSynth(midiNote) {
   const oscillator = context.createOscillator();
   const gain = context.createGain();
   oscillator.type = 'sine';
-  oscillator.frequency.value = midiToFrequency(midiNote);
+  oscillator.frequency.value = builtinFrequencyForMidi(midiNote);
   gain.gain.setValueAtTime(0.0001, context.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.22 * DEFAULT_VELOCITY, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.45 * DEFAULT_VELOCITY, context.currentTime + 0.015);
   oscillator.connect(gain).connect(pianoMasterGain);
   oscillator.start();
   activeNotes.set(`synth-${midiNote}`, { oscillator, gain });
@@ -755,26 +822,44 @@ function noteOffSynth(midiNote) {
 }
 
 function noteOn(midiNote) {
-  if (midiOutput) {
-    midiOutput.send([0x90, midiNote, Math.round(127 * DEFAULT_VELOCITY)]);
-  } else {
-    noteOnSynth(midiNote);
+  if (activeInstrument === 'tone-piano') {
+    if (window.Tone) {
+      window.Tone.start();
+    }
+    if (toneSampler) {
+      toneSampler.triggerAttack(window.Tone.Frequency(midiNote, 'midi'));
+      return;
+    }
   }
+  noteOnSynth(midiNote);
 }
 
 function noteOff(midiNote) {
-  if (midiOutput) {
-    midiOutput.send([0x80, midiNote, 0]);
-  } else {
-    noteOffSynth(midiNote);
+  if (activeInstrument === 'tone-piano') {
+    if (toneSampler && window.Tone) {
+      toneSampler.triggerRelease(window.Tone.Frequency(midiNote, 'midi'));
+      return;
+    }
   }
+  noteOffSynth(midiNote);
 }
 
-function updateActiveProgram(program) {
-  activeProgram = program;
-  if (midiOutput) {
-    midiOutput.send([0xC0, program]);
+function updateActiveInstrument(instrument) {
+  activeInstrument = instrument;
+  const status = document.getElementById('piano-status');
+  if (instrument === 'tone-piano') {
+    status.textContent = toneSampler ? 'Tone.js 鋼琴音源已就緒（Salamander 取樣）。' : '正在載入 Tone.js 鋼琴音源...';
+    return;
   }
+  if (instrument === 'builtin-just') {
+    status.textContent = '使用內建合成音源（純律）。';
+    return;
+  }
+  if (instrument === 'builtin-pythagorean') {
+    status.textContent = '使用內建合成音源（5 度相生律）。';
+    return;
+  }
+  status.textContent = '使用內建合成音源（12 平均律）。';
 }
 
 function releaseVisualKey(midiNote) {
@@ -808,15 +893,18 @@ function renderPianoKeyboard() {
   keyboard.innerHTML = '';
   keyElementsByMidi.clear();
   const whiteMidiNotes = [];
+  const layout = getCurrentLayout();
+  const { startMidi, endMidi } = getCurrentLayoutBounds();
+  keyboard.setAttribute('aria-label', `${activeKeyboardSize} 鍵鋼琴鍵盤（${layout.label}）`);
 
-  for (let midi = PIANO_START_MIDI; midi < PIANO_START_MIDI + PIANO_KEY_COUNT; midi += 1) {
+  for (let midi = startMidi; midi <= endMidi; midi += 1) {
     if (!isBlackKey(midi)) {
       whiteMidiNotes.push(midi);
       const key = document.createElement('button');
       key.type = 'button';
       key.className = 'piano-key white-key';
       key.dataset.midi = String(midi);
-      key.style.left = `${whiteMidiNotes.length * 42}px`;
+      key.style.left = `calc((100% / var(--white-key-count)) * ${whiteMidiNotes.length - 1})`;
       const shortcut = findShortcutByMidi(midi);
       key.innerHTML = `<span class="key-label bottom">${shortcut}</span>`;
       keyboard.appendChild(key);
@@ -824,10 +912,12 @@ function renderPianoKeyboard() {
     }
   }
 
+  keyboard.style.setProperty('--white-key-count', String(whiteMidiNotes.length));
+
   for (let index = 0; index < whiteMidiNotes.length; index += 1) {
     const whiteMidi = whiteMidiNotes[index];
     const blackMidi = whiteMidi + 1;
-    if (!isBlackKey(blackMidi) || blackMidi > PIANO_START_MIDI + PIANO_KEY_COUNT - 1) {
+    if (!isBlackKey(blackMidi) || blackMidi > endMidi) {
       continue;
     }
     const whiteKey = keyElementsByMidi.get(whiteMidi);
@@ -838,7 +928,7 @@ function renderPianoKeyboard() {
     blackKey.dataset.midi = String(blackMidi);
     const shortcut = findShortcutByMidi(blackMidi);
     blackKey.innerHTML = `<span class="key-label top">${shortcut}</span>`;
-    blackKey.style.left = `${index * 42 + 30}px`;
+    blackKey.style.left = `calc((100% / var(--white-key-count)) * ${index + (1 - BLACK_KEY_RATIO / 2)})`;
     keyboard.appendChild(blackKey);
     keyElementsByMidi.set(blackMidi, blackKey);
   }
@@ -847,31 +937,53 @@ function renderPianoKeyboard() {
 function bindPianoInput() {
   const keyboard = document.getElementById('piano-keyboard');
   const instrumentSelect = document.getElementById('instrument-select');
+  const keyboardSizeSelect = document.getElementById('keyboard-size-select');
   const pressedByKeyboard = new Set();
 
-  keyboard.addEventListener('pointerdown', (event) => {
-    const key = event.target.closest('.piano-key');
+  const stopPointerNote = () => {
+    if (pointerActiveMidi !== null) {
+      stopKey(pointerActiveMidi);
+      pointerActiveMidi = null;
+    }
+  };
+
+  const playFromTarget = (target) => {
+    const key = target?.closest('.piano-key');
     if (!key) return;
     const midiNote = Number.parseInt(key.dataset.midi ?? '', 10);
     if (!Number.isFinite(midiNote)) return;
+    if (pointerActiveMidi === midiNote) return;
+    stopPointerNote();
+    pointerActiveMidi = midiNote;
     playKey(midiNote);
+  };
+
+  keyboard.addEventListener('pointerdown', (event) => {
+    pointerDown = true;
+    const key = event.target.closest('.piano-key');
+    if (!key) return;
+    playFromTarget(key);
     key.setPointerCapture(event.pointerId);
   });
 
-  keyboard.addEventListener('pointerup', (event) => {
-    const key = event.target.closest('.piano-key');
-    if (!key) return;
-    const midiNote = Number.parseInt(key.dataset.midi ?? '', 10);
-    if (!Number.isFinite(midiNote)) return;
-    stopKey(midiNote);
+  keyboard.addEventListener('pointermove', (event) => {
+    if (!pointerDown) return;
+    const targetAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+    if (!(targetAtPoint instanceof HTMLElement)) return;
+    playFromTarget(targetAtPoint);
   });
 
-  keyboard.addEventListener('pointercancel', (event) => {
-    const key = event.target.closest('.piano-key');
-    if (!key) return;
-    const midiNote = Number.parseInt(key.dataset.midi ?? '', 10);
-    if (!Number.isFinite(midiNote)) return;
-    stopKey(midiNote);
+  const releasePointer = () => {
+    pointerDown = false;
+    stopPointerNote();
+  };
+
+  keyboard.addEventListener('pointerup', releasePointer);
+  keyboard.addEventListener('pointercancel', releasePointer);
+  keyboard.addEventListener('pointerleave', () => {
+    if (pointerDown) {
+      stopPointerNote();
+    }
   });
 
   document.addEventListener('keydown', (event) => {
@@ -900,21 +1012,37 @@ function bindPianoInput() {
   });
 
   instrumentSelect.addEventListener('change', () => {
-    updateActiveProgram(Number.parseInt(instrumentSelect.value, 10) || 0);
+    updateActiveInstrument(instrumentSelect.value);
+  });
+
+  keyboardSizeSelect.addEventListener('change', () => {
+    const nextSize = Number.parseInt(keyboardSizeSelect.value, 10);
+    if (!PIANO_LAYOUTS[nextSize]) {
+      return;
+    }
+    activeKeyboardSize = nextSize;
+    refreshShortcutMap();
+    renderPianoKeyboard();
+  });
+}
+
+function refreshShortcutMap() {
+  const { startMidi, endMidi } = getCurrentLayoutBounds();
+  const generatedMap = createShortcutMap();
+  midiByShortcut.clear();
+  generatedMap.forEach((midi, shortcut) => {
+    if (midi >= startMidi && midi <= endMidi) {
+      midiByShortcut.set(shortcut, midi);
+    }
   });
 }
 
 function initPiano() {
-  const generatedMap = createShortcutMap();
-  midiByShortcut.clear();
-  generatedMap.forEach((midi, shortcut) => {
-    if (midi >= PIANO_START_MIDI && midi < PIANO_START_MIDI + PIANO_KEY_COUNT) {
-      midiByShortcut.set(shortcut, midi);
-    }
-  });
+  refreshShortcutMap();
   renderPianoKeyboard();
   bindPianoInput();
-  initMidiOutput();
+  initToneSampler();
+  updateActiveInstrument(activeInstrument);
 }
 
 function createDefaultRule() {
