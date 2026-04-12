@@ -95,22 +95,33 @@
             <section id="panel-piano" class="tool-panel" role="tabpanel" aria-labelledby="tab-piano" data-tab-panel="tab-piano" hidden>
                 <article class="placeholder-card piano-card">
                     <header class="card-header">
-                        <h1>88 鍵鋼琴鍵盤</h1>
-                        <p class="card-description">可用鍵盤快捷鍵與滑鼠點擊演奏。黑鍵快捷鍵顯示在上方，白鍵快捷鍵顯示在下方。</p>
+                        <h1>可調式鋼琴鍵盤</h1>
+                        <p class="card-description">支援 Tone.js 鋼琴音源與內建合成備援音色，可用鍵盤快捷鍵、點擊與滑鼠滑奏演奏。</p>
                     </header>
 
                     <div class="control-stack piano-controls">
                         <label for="instrument-select">樂器音色</label>
                         <select id="instrument-select" aria-label="選擇樂器音色">
-                            <option value="0">Acoustic Grand Piano</option>
-                            <option value="4">Electric Piano 1</option>
-                            <option value="19">Church Organ</option>
-                            <option value="24">Nylon Guitar</option>
-                            <option value="40">Violin</option>
-                            <option value="56">Trumpet</option>
-                            <option value="73">Flute</option>
-                            <option value="80">Square Lead</option>
+                            <option value="tone-piano">Tone.js 鋼琴（公開取樣）</option>
+                            <option value="builtin-12tet">內建合成（12 平均律）</option>
+                            <option value="builtin-just">內建合成（純律）</option>
+                            <option value="builtin-pythagorean">內建合成（5 度相生律）</option>
                         </select>
+                        <label for="keyboard-size-select">琴鍵數量</label>
+                        <select id="keyboard-size-select" aria-label="選擇琴鍵數量">
+                            <option value="49">49 鍵（C2–C6）</option>
+                            <option value="61">61 鍵（C2–C7）</option>
+                            <option value="76">76 鍵（E1–G7）</option>
+                            <option value="88" selected>88 鍵（A0–C8）</option>
+                            <option value="108">108 鍵（C0–B8）</option>
+                        </select>
+                        <ul class="piano-range-list" aria-label="各琴鍵數量對應音域">
+                            <li>49 鍵：C2–C6</li>
+                            <li>61 鍵：C2–C7</li>
+                            <li>76 鍵：E1–G7</li>
+                            <li>88 鍵：A0–C8</li>
+                            <li>108 鍵：C0–B8</li>
+                        </ul>
                         <span id="piano-status" class="helper-text" role="status" aria-live="polite">正在初始化音源...</span>
                     </div>
 
@@ -163,6 +174,7 @@
         </main>
     </div>
 
+    <script src="https://unpkg.com/tone"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>
