@@ -32,6 +32,9 @@ let activeProgram = 0;
 const activeNotes = new Map();
 const keyElementsByMidi = new Map();
 const midiByShortcut = new Map();
+const replacerButtons = [];
+let editingButtonIndex = null;
+let replacerDraft = { name: '', rules: [] };
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -912,6 +915,289 @@ function initPiano() {
   initMidiOutput();
 }
 
+function createDefaultRule() {
+  return {
+    search: '',
+    replace: '',
+    caseSensitive: false,
+    wholeWord: false,
+    useEscape: false,
+    useRegex: false,
+    dotMatchesNewline: false,
+  };
+}
+
+function decodeEscapes(rawText) {
+  return rawText
+    .replace(/\\\\/g, '\u0000')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\u0000/g, '\\');
+}
+
+function escapeRegex(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildRuleRegex(rule) {
+  const searchSource = rule.useEscape ? decodeEscapes(rule.search) : rule.search;
+  if (!searchSource) return null;
+  const flags = `g${rule.caseSensitive ? '' : 'i'}${rule.useRegex && rule.dotMatchesNewline ? 's' : ''}`;
+  let source = rule.useRegex ? searchSource : escapeRegex(searchSource);
+  if (!rule.useRegex && rule.wholeWord) {
+    source = `\\b${source}\\b`;
+  }
+  try {
+    return new RegExp(source, flags);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function applyRuleToText(text, rule) {
+  const regex = buildRuleRegex(rule);
+  if (!regex) return text;
+  const replacement = rule.useEscape ? decodeEscapes(rule.replace) : rule.replace;
+  return text.replace(regex, replacement);
+}
+
+function collectRuleMatches(text, rule) {
+  const regex = buildRuleRegex(rule);
+  if (!regex) return [];
+  const matches = [];
+  for (const match of text.matchAll(regex)) {
+    if (typeof match.index !== 'number') continue;
+    matches.push({ start: match.index, end: match.index + match[0].length });
+  }
+  return matches;
+}
+
+function getEditingButton() {
+  if (editingButtonIndex === null) {
+    return replacerDraft;
+  }
+  return replacerButtons[editingButtonIndex];
+}
+
+function syncRuleOptionAvailability(container) {
+  const regexToggle = container.querySelector('[data-option="useRegex"]');
+  const wholeWord = container.querySelector('[data-option="wholeWord"]');
+  const useEscape = container.querySelector('[data-option="useEscape"]');
+  const dotMatches = container.querySelector('[data-option="dotMatchesNewline"]');
+  if (!(regexToggle instanceof HTMLInputElement) || !(wholeWord instanceof HTMLInputElement) || !(useEscape instanceof HTMLInputElement) || !(dotMatches instanceof HTMLInputElement)) {
+    return;
+  }
+  const regexEnabled = regexToggle.checked;
+  wholeWord.disabled = regexEnabled;
+  useEscape.disabled = regexEnabled;
+  dotMatches.disabled = !regexEnabled;
+  if (regexEnabled) {
+    wholeWord.checked = false;
+    useEscape.checked = false;
+  } else {
+    dotMatches.checked = false;
+  }
+}
+
+function renderReplacerButtons() {
+  const wrap = document.getElementById('replacer-buttons');
+  const target = document.getElementById('edit-target');
+  wrap.innerHTML = '';
+  target.innerHTML = '<option value="new">*</option>';
+
+  replacerButtons.forEach((buttonConfig, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = String(index + 1);
+    target.appendChild(option);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `replacer-action ${editingButtonIndex === index ? 'editing' : ''}`;
+    button.textContent = buttonConfig.name || `按鈕 ${index + 1}`;
+    button.addEventListener('click', () => runReplacementButton(index));
+    wrap.appendChild(button);
+  });
+
+  target.value = editingButtonIndex === null ? 'new' : String(editingButtonIndex);
+}
+
+function renderRulesEditor() {
+  const rulesWrap = document.getElementById('rules-container');
+  const saveButton = document.getElementById('save-button');
+  const nameInput = document.getElementById('edit-button-name');
+  const editing = getEditingButton();
+
+  saveButton.textContent = editingButtonIndex === null ? '新建按鈕' : '修改按鈕';
+  nameInput.value = editing.name ?? '';
+  rulesWrap.innerHTML = '';
+
+  editing.rules.forEach((rule, ruleIndex) => {
+    const item = document.createElement('div');
+    item.className = 'rule-item';
+    item.innerHTML = `
+      <div class="rule-remove-wrap">
+        <button type="button" class="remove-rule">X</button>
+      </div>
+      <div class="rule-fields">
+        <input type="text" data-field="search" placeholder="搜尋內容" value="${rule.search.replace(/"/g, '&quot;')}">
+        <input type="text" data-field="replace" placeholder="取代為" value="${rule.replace.replace(/"/g, '&quot;')}">
+        <div class="rule-options">
+          <label><input type="checkbox" data-option="caseSensitive" ${rule.caseSensitive ? 'checked' : ''}>區分大小寫</label>
+          <label><input type="checkbox" data-option="wholeWord" ${rule.wholeWord ? 'checked' : ''}>僅符合整個單字</label>
+          <label><input type="checkbox" data-option="useEscape" ${rule.useEscape ? 'checked' : ''}>使用跳脫字元</label>
+          <label><input type="checkbox" data-option="useRegex" ${rule.useRegex ? 'checked' : ''}>規則表達式</label>
+          <label><input type="checkbox" data-option="dotMatchesNewline" ${rule.dotMatchesNewline ? 'checked' : ''}>. 包含換行</label>
+        </div>
+      </div>
+    `;
+
+    const removeButton = item.querySelector('.remove-rule');
+    const removeWrap = item.querySelector('.rule-remove-wrap');
+    removeButton?.addEventListener('click', () => {
+      if (removeWrap?.querySelector('.remove-rule-confirm')) return;
+      const confirm = document.createElement('button');
+      confirm.type = 'button';
+      confirm.className = 'remove-rule-confirm';
+      confirm.textContent = 'X';
+      confirm.addEventListener('click', () => {
+        editing.rules.splice(ruleIndex, 1);
+        renderRulesEditor();
+      });
+      removeWrap?.appendChild(confirm);
+    });
+
+    item.querySelectorAll('[data-field]').forEach((input) => {
+      input.addEventListener('input', (event) => {
+        const el = event.target;
+        if (!(el instanceof HTMLInputElement)) return;
+        editing.rules[ruleIndex][el.dataset.field] = el.value;
+      });
+    });
+
+    item.querySelectorAll('[data-option]').forEach((input) => {
+      input.addEventListener('change', (event) => {
+        const el = event.target;
+        if (!(el instanceof HTMLInputElement)) return;
+        editing.rules[ruleIndex][el.dataset.option] = el.checked;
+        syncRuleOptionAvailability(item);
+      });
+    });
+
+    syncRuleOptionAvailability(item);
+    rulesWrap.appendChild(item);
+  });
+}
+
+function resetReplacerEditor() {
+  editingButtonIndex = null;
+  replacerDraft = { name: '', rules: [] };
+  document.getElementById('edit-target').value = 'new';
+  renderReplacerButtons();
+  renderRulesEditor();
+}
+
+function saveEditingButton() {
+  const name = document.getElementById('edit-button-name').value.trim();
+  const editing = getEditingButton();
+  const next = {
+    name: name || '未命名按鈕',
+    rules: editing.rules.map((rule) => ({ ...rule })),
+  };
+
+  if (editingButtonIndex === null) {
+    replacerButtons.push(next);
+  } else {
+    replacerButtons[editingButtonIndex] = next;
+  }
+
+  resetReplacerEditor();
+}
+
+function runReplacementButton(buttonIndex) {
+  const textArea = document.getElementById('replacer-text');
+  const previewMode = document.getElementById('replacer-preview-toggle').checked;
+  const buttonConfig = replacerButtons[buttonIndex];
+  if (!buttonConfig) return;
+
+  if (previewMode) {
+    const allMatches = buttonConfig.rules.flatMap((rule) => collectRuleMatches(textArea.value, rule));
+    if (allMatches.length > 0) {
+      const first = allMatches[0];
+      textArea.focus();
+      textArea.setSelectionRange(first.start, first.end);
+    }
+    return;
+  }
+
+  let nextText = textArea.value;
+  buttonConfig.rules.forEach((rule) => {
+    nextText = applyRuleToText(nextText, rule);
+  });
+  textArea.value = nextText;
+}
+
+function exportReplacerProfile() {
+  const profileInput = document.getElementById('replacer-profile-input');
+  profileInput.value = JSON.stringify({ version: 1, buttons: replacerButtons });
+}
+
+function importReplacerProfile() {
+  const profileInput = document.getElementById('replacer-profile-input');
+  if (!profileInput.value.trim()) return;
+  try {
+    const parsed = JSON.parse(profileInput.value);
+    const importedButtons = Array.isArray(parsed.buttons) ? parsed.buttons : [];
+    replacerButtons.length = 0;
+    importedButtons.forEach((button) => {
+      if (!button || !Array.isArray(button.rules)) return;
+      replacerButtons.push({
+        name: String(button.name ?? '未命名按鈕'),
+        rules: button.rules.map((rule) => ({ ...createDefaultRule(), ...rule })),
+      });
+    });
+    resetReplacerEditor();
+  } catch (_error) {
+    profileInput.focus();
+  }
+}
+
+function bindTextReplacer() {
+  const editTarget = document.getElementById('edit-target');
+  const addRule = document.getElementById('add-rule');
+  const saveButton = document.getElementById('save-button');
+  const importButton = document.getElementById('replacer-import');
+  const exportButton = document.getElementById('replacer-export');
+  const editName = document.getElementById('edit-button-name');
+
+  editTarget.addEventListener('change', () => {
+    const value = editTarget.value;
+    editingButtonIndex = value === 'new' ? null : Number.parseInt(value, 10);
+    renderReplacerButtons();
+    renderRulesEditor();
+  });
+
+  editName.addEventListener('input', () => {
+    const current = getEditingButton();
+    current.name = editName.value;
+    renderReplacerButtons();
+  });
+
+  addRule.addEventListener('click', () => {
+    const editing = getEditingButton();
+    editing.rules.push(createDefaultRule());
+    renderRulesEditor();
+  });
+
+  saveButton.addEventListener('click', saveEditingButton);
+  importButton.addEventListener('click', importReplacerProfile);
+  exportButton.addEventListener('click', exportReplacerProfile);
+
+  renderReplacerButtons();
+  renderRulesEditor();
+}
+
 function bindEvents() {
   const primary = document.getElementById('stopwatch-primary');
   const secondary = document.getElementById('stopwatch-secondary');
@@ -926,6 +1212,7 @@ function bindEvents() {
   bindTabs();
   bindTimerSettings();
   initPiano();
+  bindTextReplacer();
 
   document.addEventListener('visibilitychange', () => {
     updateDocumentTitle(getCurrentElapsed());
