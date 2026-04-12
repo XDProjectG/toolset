@@ -14,6 +14,7 @@
                 <button id="tab-stopwatch" class="tool-tab" type="button" role="tab" aria-selected="true" aria-controls="panel-stopwatch">碼錶</button>
                 <button id="tab-midi-abc" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-midi-abc" tabindex="-1">MIDI 轉 ABC</button>
                 <button id="tab-piano" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-piano" tabindex="-1">鋼琴鍵盤</button>
+                <button id="tab-text-replacer" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-text-replacer" tabindex="-1">文字取代器</button>
             </div>
         </aside>
 
@@ -116,6 +117,46 @@
                     <div class="piano-scroll-wrap">
                         <div id="piano-keyboard" class="piano-keyboard" aria-label="標準 88 鍵鋼琴鍵盤"></div>
                     </div>
+                </article>
+            </section>
+
+            <section id="panel-text-replacer" class="tool-panel" role="tabpanel" aria-labelledby="tab-text-replacer" data-tab-panel="tab-text-replacer" hidden>
+                <article class="placeholder-card text-replacer-card">
+                    <header class="card-header">
+                        <h1>文字取代器</h1>
+                        <p class="card-description">可建立多組按鈕規則，支援預覽搜尋與全文取代。</p>
+                    </header>
+
+                    <div class="replacer-profile-row">
+                        <input id="replacer-profile-input" type="text" placeholder="取代規則設定檔（單行字串）">
+                        <button id="replacer-import" type="button">匯入</button>
+                        <button id="replacer-export" type="button">匯出</button>
+                    </div>
+
+                    <div class="replacer-main-layout">
+                        <textarea id="replacer-text" rows="16" placeholder="在此輸入要處理的全文內容。"></textarea>
+
+                        <aside class="replacer-side">
+                            <label class="preview-toggle">
+                                <input id="replacer-preview-toggle" type="checkbox">
+                                預覽
+                            </label>
+                            <div id="replacer-buttons" class="replacer-buttons"></div>
+                        </aside>
+                    </div>
+
+                    <section class="replacer-editor">
+                        <div class="editor-row top">
+                            <select id="edit-target" aria-label="正在編輯按鈕">
+                                <option value="new">*</option>
+                            </select>
+                            <input id="edit-button-name" type="text" placeholder="重整連結格式">
+                            <button id="add-rule" type="button">+</button>
+                            <button id="save-button" type="button">複製按鈕</button>
+                        </div>
+
+                        <div id="rules-container" class="editor-row bottom"></div>
+                    </section>
                 </article>
             </section>
         </main>
