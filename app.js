@@ -35,6 +35,7 @@ const midiByShortcut = new Map();
 const replacerButtons = [];
 let editingButtonIndex = null;
 let replacerDraft = { name: '', rules: [] };
+let activeRemoveConfirmHost = null;
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -1025,13 +1026,12 @@ function renderReplacerButtons() {
 
 function renderRulesEditor() {
   const rulesWrap = document.getElementById('rules-container');
-  const saveButton = document.getElementById('save-button');
   const nameInput = document.getElementById('edit-button-name');
   const editing = getEditingButton();
 
-  saveButton.textContent = editingButtonIndex === null ? '新建按鈕' : '修改按鈕';
   nameInput.value = editing.name ?? '';
   rulesWrap.innerHTML = '';
+  activeRemoveConfirmHost = null;
 
   editing.rules.forEach((rule, ruleIndex) => {
     const item = document.createElement('div');
@@ -1056,16 +1056,26 @@ function renderRulesEditor() {
     const removeButton = item.querySelector('.remove-rule');
     const removeWrap = item.querySelector('.rule-remove-wrap');
     removeButton?.addEventListener('click', () => {
-      if (removeWrap?.querySelector('.remove-rule-confirm')) return;
+      if (!removeWrap) return;
+      if (removeWrap.querySelector('.remove-rule-confirm')) {
+        removeWrap.querySelector('.remove-rule-confirm')?.remove();
+        activeRemoveConfirmHost = null;
+        return;
+      }
+      if (activeRemoveConfirmHost && activeRemoveConfirmHost !== removeWrap) {
+        activeRemoveConfirmHost.querySelector('.remove-rule-confirm')?.remove();
+      }
       const confirm = document.createElement('button');
       confirm.type = 'button';
       confirm.className = 'remove-rule-confirm';
       confirm.textContent = 'X';
       confirm.addEventListener('click', () => {
         editing.rules.splice(ruleIndex, 1);
+        activeRemoveConfirmHost = null;
         renderRulesEditor();
       });
-      removeWrap?.appendChild(confirm);
+      removeWrap.appendChild(confirm);
+      activeRemoveConfirmHost = removeWrap;
     });
 
     item.querySelectorAll('[data-field]').forEach((input) => {
@@ -1106,13 +1116,10 @@ function saveEditingButton() {
     rules: editing.rules.map((rule) => ({ ...rule })),
   };
 
-  if (editingButtonIndex === null) {
-    replacerButtons.push(next);
-  } else {
-    replacerButtons[editingButtonIndex] = next;
-  }
-
-  resetReplacerEditor();
+  replacerButtons.push(next);
+  editingButtonIndex = replacerButtons.length - 1;
+  renderReplacerButtons();
+  renderRulesEditor();
 }
 
 function runReplacementButton(buttonIndex) {
@@ -1176,6 +1183,15 @@ function bindTextReplacer() {
     editingButtonIndex = value === 'new' ? null : Number.parseInt(value, 10);
     renderReplacerButtons();
     renderRulesEditor();
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!activeRemoveConfirmHost) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (activeRemoveConfirmHost.contains(target)) return;
+    activeRemoveConfirmHost.querySelector('.remove-rule-confirm')?.remove();
+    activeRemoveConfirmHost = null;
   });
 
   editName.addEventListener('input', () => {
