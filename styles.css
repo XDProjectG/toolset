@@ -385,6 +385,124 @@ select:focus-visible {
   gap: 1rem;
 }
 
+.text-replacer-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.replacer-profile-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 0.5rem;
+}
+
+.replacer-main-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 0.8rem;
+  align-items: start;
+}
+
+#replacer-text {
+  min-height: 24rem;
+}
+
+.replacer-side {
+  border: 1px solid #dbe2ea;
+  border-radius: 0.8rem;
+  background: rgba(248, 250, 252, 0.82);
+  padding: 0.7rem;
+  min-height: 24rem;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.6rem;
+}
+
+.preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+}
+
+.preview-toggle input,
+.rule-options input {
+  width: auto;
+}
+
+.replacer-buttons {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.replacer-action {
+  width: 100%;
+  text-align: left;
+}
+
+.replacer-action.editing {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+.replacer-editor {
+  border: 1px solid #dbe2ea;
+  border-radius: 0.8rem;
+  background: rgba(248, 250, 252, 0.7);
+  padding: 0.8rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.editor-row.top {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) 52px 120px;
+  gap: 0.5rem;
+}
+
+.editor-row.bottom {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.rule-item {
+  display: grid;
+  grid-template-columns: 60px minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+}
+
+.rule-remove-wrap {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.remove-rule,
+.remove-rule-confirm {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.rule-fields {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.rule-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.rule-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
 .piano-controls {
   max-width: 340px;
 }
@@ -515,5 +633,17 @@ select:focus-visible {
     grid-template-columns: 54px 1fr 1fr;
     gap: 0.65rem;
     font-size: 0.9rem;
+  }
+
+  .replacer-main-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .replacer-side {
+    min-height: 0;
+  }
+
+  .editor-row.top {
+    grid-template-columns: 1fr 1fr;
   }
 }
