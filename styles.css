@@ -457,7 +457,7 @@ select:focus-visible {
 
 .editor-row.top {
   display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 52px 120px;
+  grid-template-columns: 90px minmax(0, 1fr) 52px 52px 120px;
   gap: 0.5rem;
 }
 
@@ -480,6 +480,13 @@ select:focus-visible {
 
 .remove-rule,
 .remove-rule-confirm {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.remove-current-button,
+.remove-current-button-confirm {
   background: #dc2626;
   border-color: #dc2626;
   color: #fff;

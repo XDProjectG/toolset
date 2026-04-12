@@ -36,6 +36,7 @@ const replacerButtons = [];
 let editingButtonIndex = null;
 let replacerDraft = { name: '', rules: [] };
 let activeRemoveConfirmHost = null;
+let activeDeleteButtonConfirm = null;
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -1004,6 +1005,7 @@ function syncRuleOptionAvailability(container) {
 function renderReplacerButtons() {
   const wrap = document.getElementById('replacer-buttons');
   const target = document.getElementById('edit-target');
+  const deleteButton = document.getElementById('delete-button');
   wrap.innerHTML = '';
   target.innerHTML = '<option value="new">*</option>';
 
@@ -1022,6 +1024,11 @@ function renderReplacerButtons() {
   });
 
   target.value = editingButtonIndex === null ? 'new' : String(editingButtonIndex);
+  deleteButton.disabled = editingButtonIndex === null;
+  if (deleteButton.disabled && activeDeleteButtonConfirm) {
+    activeDeleteButtonConfirm.remove();
+    activeDeleteButtonConfirm = null;
+  }
 }
 
 function renderRulesEditor() {
@@ -1117,7 +1124,17 @@ function saveEditingButton() {
   };
 
   replacerButtons.push(next);
-  editingButtonIndex = replacerButtons.length - 1;
+  editingButtonIndex = null;
+  replacerDraft = { name: '', rules: [] };
+  renderReplacerButtons();
+  renderRulesEditor();
+}
+
+function removeEditingButton() {
+  if (editingButtonIndex === null) return;
+  replacerButtons.splice(editingButtonIndex, 1);
+  editingButtonIndex = null;
+  replacerDraft = { name: '', rules: [] };
   renderReplacerButtons();
   renderRulesEditor();
 }
@@ -1172,6 +1189,7 @@ function importReplacerProfile() {
 
 function bindTextReplacer() {
   const editTarget = document.getElementById('edit-target');
+  const deleteButton = document.getElementById('delete-button');
   const addRule = document.getElementById('add-rule');
   const saveButton = document.getElementById('save-button');
   const importButton = document.getElementById('replacer-import');
@@ -1181,17 +1199,25 @@ function bindTextReplacer() {
   editTarget.addEventListener('change', () => {
     const value = editTarget.value;
     editingButtonIndex = value === 'new' ? null : Number.parseInt(value, 10);
+    activeDeleteButtonConfirm?.remove();
+    activeDeleteButtonConfirm = null;
     renderReplacerButtons();
     renderRulesEditor();
   });
 
   document.addEventListener('pointerdown', (event) => {
-    if (!activeRemoveConfirmHost) return;
     const target = event.target;
     if (!(target instanceof Element)) return;
-    if (activeRemoveConfirmHost.contains(target)) return;
-    activeRemoveConfirmHost.querySelector('.remove-rule-confirm')?.remove();
-    activeRemoveConfirmHost = null;
+
+    if (activeRemoveConfirmHost && !activeRemoveConfirmHost.contains(target)) {
+      activeRemoveConfirmHost.querySelector('.remove-rule-confirm')?.remove();
+      activeRemoveConfirmHost = null;
+    }
+
+    if (activeDeleteButtonConfirm && !activeDeleteButtonConfirm.contains(target) && target !== deleteButton) {
+      activeDeleteButtonConfirm.remove();
+      activeDeleteButtonConfirm = null;
+    }
   });
 
   editName.addEventListener('input', () => {
@@ -1204,6 +1230,25 @@ function bindTextReplacer() {
     const editing = getEditingButton();
     editing.rules.push(createDefaultRule());
     renderRulesEditor();
+  });
+
+  deleteButton.addEventListener('click', () => {
+    if (editingButtonIndex === null) return;
+    if (activeDeleteButtonConfirm) {
+      activeDeleteButtonConfirm.remove();
+      activeDeleteButtonConfirm = null;
+      return;
+    }
+    const confirm = document.createElement('button');
+    confirm.type = 'button';
+    confirm.className = 'remove-current-button-confirm';
+    confirm.textContent = 'X';
+    confirm.addEventListener('click', () => {
+      removeEditingButton();
+      activeDeleteButtonConfirm = null;
+    });
+    deleteButton.insertAdjacentElement('afterend', confirm);
+    activeDeleteButtonConfirm = confirm;
   });
 
   saveButton.addEventListener('click', saveEditingButton);
