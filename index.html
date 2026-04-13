@@ -100,45 +100,49 @@
                     </header>
 
                     <div class="control-stack piano-controls">
-                        <label for="instrument-select">樂器音色</label>
-                        <select id="instrument-select" aria-label="選擇樂器音色">
-                            <optgroup label="Tone.js 取樣">
-                            <option value="tone-piano">Tone.js 鋼琴（公開取樣）</option>
-                            </optgroup>
-                            <optgroup label="Tone.js 內建合成器">
-                            <option value="tone-synth">Tone Synth（經典）</option>
-                            <option value="tone-am-synth">Tone AMSynth（AM）</option>
-                            <option value="tone-fm-synth">Tone FMSynth（FM）</option>
-                            <option value="tone-mono-synth">Tone MonoSynth（單音）</option>
-                            <option value="tone-duo-synth">Tone DuoSynth（雙振盪器）</option>
-                            <option value="tone-membrane-synth">Tone MembraneSynth（鼓膜）</option>
-                            <option value="tone-metal-synth">Tone MetalSynth（金屬）</option>
-                            <option value="tone-pluck-synth">Tone PluckSynth（撥弦）</option>
-                            </optgroup>
-                            <optgroup label="tonejs-instruments 公開庫">
-                            <option value="tji-violin">tonejs-instruments：Violin</option>
-                            <option value="tji-flute">tonejs-instruments：Flute</option>
-                            <option value="tji-trumpet">tonejs-instruments：Trumpet</option>
-                            </optgroup>
-                            <optgroup label="Berklee 公開庫（Tone.js audio）">
-                            <option value="berklee-gong">Berklee：Gong</option>
-                            <option value="berklee-theremin">Berklee：Gurgling Theremin</option>
-                            </optgroup>
-                            <optgroup label="內建備援合成">
-                            <option value="builtin-12tet">內建合成（12 平均律）</option>
-                            <option value="builtin-just">內建合成（純律）</option>
-                            <option value="builtin-pythagorean">內建合成（5 度相生律）</option>
-                            </optgroup>
-                        </select>
-                        <label for="keyboard-size-select">琴鍵數量</label>
-                        <select id="keyboard-size-select" aria-label="選擇琴鍵數量">
-                            <option value="49">49 鍵（C2–C6）</option>
-                            <option value="61">61 鍵（C2–C7）</option>
-                            <option value="76">76 鍵（E1–G7）</option>
-                            <option value="88" selected>88 鍵（A0–C8）</option>
-                            <option value="108">108 鍵（C0–B8）</option>
-                        </select>
-                        <span id="piano-status" class="helper-text" role="status" aria-live="polite">正在初始化音源...</span>
+                        <div class="piano-control-group instrument-group">
+                            <label for="instrument-select">樂器音色</label>
+                            <select id="instrument-select" aria-label="選擇樂器音色">
+                                <optgroup label="Tone.js 取樣">
+                                <option value="tone-piano">Tone.js 鋼琴（公開取樣）</option>
+                                </optgroup>
+                                <optgroup label="Tone.js 內建合成器">
+                                <option value="tone-synth">Tone Synth（經典）</option>
+                                <option value="tone-am-synth">Tone AMSynth（AM）</option>
+                                <option value="tone-fm-synth">Tone FMSynth（FM）</option>
+                                <option value="tone-mono-synth">Tone MonoSynth（單音）</option>
+                                <option value="tone-duo-synth">Tone DuoSynth（雙振盪器）</option>
+                                <option value="tone-membrane-synth">Tone MembraneSynth（鼓膜）</option>
+                                <option value="tone-metal-synth">Tone MetalSynth（金屬）</option>
+                                <option value="tone-pluck-synth">Tone PluckSynth（撥弦）</option>
+                                </optgroup>
+                                <optgroup label="tonejs-instruments 公開庫">
+                                <option value="tji-violin">tonejs-instruments：Violin</option>
+                                <option value="tji-flute">tonejs-instruments：Flute</option>
+                                <option value="tji-trumpet">tonejs-instruments：Trumpet</option>
+                                </optgroup>
+                                <optgroup label="Berklee 公開庫（Tone.js audio）">
+                                <option value="berklee-gong">Berklee：Gong</option>
+                                <option value="berklee-theremin">Berklee：Gurgling Theremin</option>
+                                </optgroup>
+                                <optgroup label="內建備援合成">
+                                <option value="builtin-12tet">內建合成（12 平均律）</option>
+                                <option value="builtin-just">內建合成（純律）</option>
+                                <option value="builtin-pythagorean">內建合成（5 度相生律）</option>
+                                </optgroup>
+                            </select>
+                            <span id="piano-status" class="helper-text" role="status" aria-live="polite">正在初始化音源...</span>
+                        </div>
+                        <div class="piano-control-group">
+                            <label for="keyboard-size-select">琴鍵數量</label>
+                            <select id="keyboard-size-select" aria-label="選擇琴鍵數量">
+                                <option value="49">49 鍵（C2–C6）</option>
+                                <option value="61">61 鍵（C2–C7）</option>
+                                <option value="76">76 鍵（E1–G7）</option>
+                                <option value="88" selected>88 鍵（A0–C8）</option>
+                                <option value="108">108 鍵（C0–B8）</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div class="piano-scroll-wrap">
