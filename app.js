@@ -917,7 +917,11 @@ async function noteOn(midiNote) {
       const noteName = window.Tone?.Frequency(midiNote, 'midi').toNote();
       if (node && noteName && typeof node.triggerAttack === 'function') {
         node.triggerAttack(noteName);
-        activeNotes.set(`tone-${midiNote}`, node);
+        activeNotes.set(`tone-${midiNote}`, {
+          node,
+          noteName,
+          kind: config.kind,
+        });
         return;
       }
     } catch (error) {
@@ -928,16 +932,15 @@ async function noteOn(midiNote) {
 }
 
 function noteOff(midiNote) {
-  const config = INSTRUMENT_LIBRARY[activeInstrument];
-  if (config && config.kind !== 'builtin' && window.Tone) {
-    const noteName = window.Tone.Frequency(midiNote, 'midi').toNote();
-    const node = activeNotes.get(`tone-${midiNote}`) || instrumentNodes.get(activeInstrument);
+  const activeToneNote = activeNotes.get(`tone-${midiNote}`);
+  if (activeToneNote) {
+    const { node, noteName, kind } = activeToneNote;
     if (node && typeof node.triggerRelease === 'function') {
       node.triggerRelease(noteName);
       activeNotes.delete(`tone-${midiNote}`);
       return;
     }
-    if (config.kind === 'tone-pluck') {
+    if (kind === 'tone-pluck') {
       activeNotes.delete(`tone-${midiNote}`);
       return;
     }
@@ -945,7 +948,33 @@ function noteOff(midiNote) {
   noteOffSynth(midiNote);
 }
 
+function stopAllPlayingNotes() {
+  const toneEntries = [];
+  const synthMidiNotes = [];
+  activeNotes.forEach((value, key) => {
+    if (key.startsWith('tone-')) {
+      toneEntries.push(value);
+      return;
+    }
+    if (key.startsWith('synth-')) {
+      const midi = Number.parseInt(key.replace('synth-', ''), 10);
+      if (Number.isFinite(midi)) {
+        synthMidiNotes.push(midi);
+      }
+    }
+  });
+
+  toneEntries.forEach((entry) => {
+    if (entry?.node && typeof entry.node.triggerRelease === 'function') {
+      entry.node.triggerRelease(entry.noteName);
+    }
+  });
+  synthMidiNotes.forEach((midi) => noteOffSynth(midi));
+  activeNotes.clear();
+}
+
 function updateActiveInstrument(instrument) {
+  stopAllPlayingNotes();
   activeInstrument = instrument;
   const status = document.getElementById('piano-status');
   const config = INSTRUMENT_LIBRARY[instrument];
