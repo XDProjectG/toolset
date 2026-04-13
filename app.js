@@ -56,7 +56,15 @@ const INSTRUMENT_LIBRARY = {
   'tone-duo-synth': { kind: 'tone-poly', synthType: 'DuoSynth', label: 'Tone DuoSynth（雙振盪器）' },
   'tone-membrane-synth': { kind: 'tone-poly', synthType: 'MembraneSynth', label: 'Tone MembraneSynth（鼓膜）' },
   'tone-metal-synth': { kind: 'tone-poly', synthType: 'MetalSynth', label: 'Tone MetalSynth（金屬）' },
-  'tone-pluck-synth': { kind: 'tone-pluck', label: 'Tone PluckSynth（撥弦）' },
+  'tone-pluck-synth': {
+    kind: 'tone-poly',
+    synthType: 'Synth',
+    synthOptions: {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.001, decay: 0.12, sustain: 0, release: 0.08 },
+    },
+    label: 'Tone PluckSynth（撥弦）',
+  },
   'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
   'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
   'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
@@ -826,28 +834,28 @@ function routeToDestination(node) {
   return node;
 }
 
-function createTonePolySynth(synthType) {
+function createTonePolySynth(synthType, synthOptions = {}) {
   const SynthClass = window.Tone?.[synthType];
   if (typeof SynthClass !== 'function') {
     throw new Error(`Tone.js 無法建立 ${synthType}`);
   }
-  return routeToDestination(new window.Tone.PolySynth(SynthClass));
+  return routeToDestination(new window.Tone.PolySynth(SynthClass, synthOptions));
 }
 
 function createTonejsInstrumentSampler(instrumentName) {
   if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
     throw new Error('tonejs-instruments 未載入');
   }
-  const loaded = window.SampleLibrary.load({ instruments: instrumentName });
+  const loaded = window.SampleLibrary.load({
+    instruments: instrumentName,
+    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/',
+    minify: false,
+  });
   const node = loaded?.[instrumentName] || loaded;
   if (!node || typeof node.triggerAttack !== 'function') {
     throw new Error(`tonejs-instruments 音色 ${instrumentName} 載入失敗`);
   }
   return routeToDestination(node);
-}
-
-function createTonePluckSynth() {
-  return routeToDestination(new window.Tone.PluckSynth());
 }
 
 async function getInstrumentNode(instrument) {
@@ -865,14 +873,13 @@ async function getInstrumentNode(instrument) {
   if (config.kind === 'sampler') {
     node = createTonePianoSampler();
   } else if (config.kind === 'tone-poly') {
-    node = createTonePolySynth(config.synthType);
-  } else if (config.kind === 'tone-pluck') {
-    node = createTonePluckSynth();
+    node = createTonePolySynth(config.synthType, config.synthOptions);
   } else if (config.kind === 'tonejs-instruments') {
     node = createTonejsInstrumentSampler(config.instrumentName);
   } else if (config.kind === 'berklee-sampler') {
     node = createBerkleeSampler(config.sampleUrl);
   }
+  await window.Tone.loaded();
   if (node) {
     instrumentNodes.set(instrument, node);
   }
@@ -934,13 +941,9 @@ async function noteOn(midiNote) {
 function noteOff(midiNote) {
   const activeToneNote = activeNotes.get(`tone-${midiNote}`);
   if (activeToneNote) {
-    const { node, noteName, kind } = activeToneNote;
+    const { node, noteName } = activeToneNote;
     if (node && typeof node.triggerRelease === 'function') {
       node.triggerRelease(noteName);
-      activeNotes.delete(`tone-${midiNote}`);
-      return;
-    }
-    if (kind === 'tone-pluck') {
       activeNotes.delete(`tone-${midiNote}`);
       return;
     }
