@@ -56,7 +56,7 @@ const INSTRUMENT_LIBRARY = {
   'tone-duo-synth': { kind: 'tone-poly', synthType: 'DuoSynth', label: 'Tone DuoSynth（雙振盪器）' },
   'tone-membrane-synth': { kind: 'tone-poly', synthType: 'MembraneSynth', label: 'Tone MembraneSynth（鼓膜）' },
   'tone-metal-synth': { kind: 'tone-poly', synthType: 'MetalSynth', label: 'Tone MetalSynth（金屬）' },
-  'tone-pluck-synth': { kind: 'tone-poly', synthType: 'PluckSynth', label: 'Tone PluckSynth（撥弦）' },
+  'tone-pluck-synth': { kind: 'tone-pluck', label: 'Tone PluckSynth（撥弦）' },
   'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
   'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
   'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
@@ -838,7 +838,16 @@ function createTonejsInstrumentSampler(instrumentName) {
   if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
     throw new Error('tonejs-instruments 未載入');
   }
-  return routeToDestination(window.SampleLibrary.load({ instruments: instrumentName }));
+  const loaded = window.SampleLibrary.load({ instruments: instrumentName });
+  const node = loaded?.[instrumentName] || loaded;
+  if (!node || typeof node.triggerAttack !== 'function') {
+    throw new Error(`tonejs-instruments 音色 ${instrumentName} 載入失敗`);
+  }
+  return routeToDestination(node);
+}
+
+function createTonePluckSynth() {
+  return routeToDestination(new window.Tone.PluckSynth());
 }
 
 async function getInstrumentNode(instrument) {
@@ -857,6 +866,8 @@ async function getInstrumentNode(instrument) {
     node = createTonePianoSampler();
   } else if (config.kind === 'tone-poly') {
     node = createTonePolySynth(config.synthType);
+  } else if (config.kind === 'tone-pluck') {
+    node = createTonePluckSynth();
   } else if (config.kind === 'tonejs-instruments') {
     node = createTonejsInstrumentSampler(config.instrumentName);
   } else if (config.kind === 'berklee-sampler') {
@@ -903,8 +914,9 @@ async function noteOn(midiNote) {
     try {
       await ensureToneStarted();
       const node = await getInstrumentNode(activeInstrument);
-      if (node && window.Tone) {
-        node.triggerAttack(window.Tone.Frequency(midiNote, 'midi'));
+      const noteName = window.Tone?.Frequency(midiNote, 'midi').toNote();
+      if (node && noteName && typeof node.triggerAttack === 'function') {
+        node.triggerAttack(noteName);
         activeNotes.set(`tone-${midiNote}`, node);
         return;
       }
@@ -918,9 +930,14 @@ async function noteOn(midiNote) {
 function noteOff(midiNote) {
   const config = INSTRUMENT_LIBRARY[activeInstrument];
   if (config && config.kind !== 'builtin' && window.Tone) {
+    const noteName = window.Tone.Frequency(midiNote, 'midi').toNote();
     const node = activeNotes.get(`tone-${midiNote}`) || instrumentNodes.get(activeInstrument);
-    if (node) {
-      node.triggerRelease(window.Tone.Frequency(midiNote, 'midi'));
+    if (node && typeof node.triggerRelease === 'function') {
+      node.triggerRelease(noteName);
+      activeNotes.delete(`tone-${midiNote}`);
+      return;
+    }
+    if (config.kind === 'tone-pluck') {
       activeNotes.delete(`tone-${midiNote}`);
       return;
     }
@@ -1062,7 +1079,6 @@ function bindPianoInput() {
     const key = event.target.closest('.piano-key');
     if (!key) return;
     playFromTarget(key);
-    key.setPointerCapture(event.pointerId);
   });
 
   keyboard.addEventListener('pointermove', (event) => {
