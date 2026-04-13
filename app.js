@@ -952,6 +952,7 @@ function noteOff(midiNote) {
 }
 
 function stopAllPlayingNotes() {
+  heldNoteTokens.clear();
   const toneEntries = [];
   const synthMidiNotes = [];
   activeNotes.forEach((value, key) => {
@@ -1034,6 +1035,58 @@ function stopKey(midiNote) {
   noteOff(midiNote);
 }
 
+const heldNoteTokens = new Map();
+
+function holdNote(midiNote, token) {
+  const tokens = heldNoteTokens.get(midiNote) || new Set();
+  const wasEmpty = tokens.size === 0;
+  tokens.add(token);
+  heldNoteTokens.set(midiNote, tokens);
+  if (wasEmpty) {
+    playKey(midiNote);
+  }
+}
+
+function releaseHeldNote(midiNote, token) {
+  const tokens = heldNoteTokens.get(midiNote);
+  if (!tokens) return;
+  tokens.delete(token);
+  if (tokens.size === 0) {
+    heldNoteTokens.delete(midiNote);
+    stopKey(midiNote);
+    return;
+  }
+  heldNoteTokens.set(midiNote, tokens);
+}
+
+function resolveShortcutFromKeyboardEvent(event) {
+  if (midiByShortcut.has(event.key)) {
+    return event.key;
+  }
+  const numpadMap = {
+    Numpad0: '0',
+    Numpad1: '1',
+    Numpad2: '2',
+    Numpad3: '3',
+    Numpad4: '4',
+    Numpad5: '5',
+    Numpad6: '6',
+    Numpad7: '7',
+    Numpad8: '8',
+    Numpad9: '9',
+    NumpadDecimal: '.',
+    NumpadAdd: '+',
+    NumpadSubtract: '-',
+    NumpadMultiply: '*',
+    NumpadDivide: '/',
+  };
+  const mapped = numpadMap[event.code];
+  if (mapped && midiByShortcut.has(mapped)) {
+    return mapped;
+  }
+  return null;
+}
+
 function renderPianoKeyboard() {
   const keyboard = document.getElementById('piano-keyboard');
   if (!keyboard) return;
@@ -1086,11 +1139,12 @@ function bindPianoInput() {
   const keyboard = document.getElementById('piano-keyboard');
   const instrumentSelect = document.getElementById('instrument-select');
   const keyboardSizeSelect = document.getElementById('keyboard-size-select');
-  const pressedByKeyboard = new Set();
+  const pressedByKeyboardCode = new Map();
+  const pointerToken = 'pointer';
 
   const stopPointerNote = () => {
     if (pointerActiveMidi !== null) {
-      stopKey(pointerActiveMidi);
+      releaseHeldNote(pointerActiveMidi, pointerToken);
       pointerActiveMidi = null;
     }
   };
@@ -1103,7 +1157,7 @@ function bindPianoInput() {
     if (pointerActiveMidi === midiNote) return;
     stopPointerNote();
     pointerActiveMidi = midiNote;
-    playKey(midiNote);
+    holdNote(midiNote, pointerToken);
   };
 
   keyboard.addEventListener('pointerdown', (event) => {
@@ -1138,13 +1192,15 @@ function bindPianoInput() {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
       return;
     }
-    if (event.repeat) return;
-    const midiNote = midiByShortcut.get(event.key);
+    const shortcut = resolveShortcutFromKeyboardEvent(event);
+    if (!shortcut) return;
+    const midiNote = midiByShortcut.get(shortcut);
     if (!midiNote) return;
+    if (event.repeat) return;
     event.preventDefault();
-    if (pressedByKeyboard.has(event.key)) return;
-    pressedByKeyboard.add(event.key);
-    playKey(midiNote);
+    if (pressedByKeyboardCode.has(event.code)) return;
+    pressedByKeyboardCode.set(event.code, midiNote);
+    holdNote(midiNote, `kbd:${event.code}`);
   });
 
   document.addEventListener('keyup', (event) => {
@@ -1152,10 +1208,10 @@ function bindPianoInput() {
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
       return;
     }
-    const midiNote = midiByShortcut.get(event.key);
+    const midiNote = pressedByKeyboardCode.get(event.code);
     if (!midiNote) return;
-    pressedByKeyboard.delete(event.key);
-    stopKey(midiNote);
+    pressedByKeyboardCode.delete(event.code);
+    releaseHeldNote(midiNote, `kbd:${event.code}`);
   });
 
   instrumentSelect.addEventListener('change', () => {
