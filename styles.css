@@ -511,7 +511,19 @@ select:focus-visible {
 }
 
 .piano-controls {
-  max-width: 420px;
+  max-width: 820px;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  align-items: start;
+  column-gap: 1rem;
+}
+
+.piano-control-group {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.instrument-group {
+  min-width: 0;
 }
 
 .piano-scroll-wrap {
@@ -660,5 +672,10 @@ select:focus-visible {
 
   .editor-row.top {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .piano-controls {
+    grid-template-columns: 1fr;
+    max-width: 420px;
   }
 }
