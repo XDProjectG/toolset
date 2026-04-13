@@ -49,14 +49,14 @@ let activeDeleteButtonConfirm = null;
 
 const INSTRUMENT_LIBRARY = {
   'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
-  'tone-synth': { kind: 'tone-poly', factory: () => new window.Tone.Synth(), label: 'Tone Synth（經典）' },
-  'tone-am-synth': { kind: 'tone-poly', factory: () => new window.Tone.AMSynth(), label: 'Tone AMSynth（AM）' },
-  'tone-fm-synth': { kind: 'tone-poly', factory: () => new window.Tone.FMSynth(), label: 'Tone FMSynth（FM）' },
-  'tone-mono-synth': { kind: 'tone-poly', factory: () => new window.Tone.MonoSynth(), label: 'Tone MonoSynth（單音）' },
-  'tone-duo-synth': { kind: 'tone-poly', factory: () => new window.Tone.DuoSynth(), label: 'Tone DuoSynth（雙振盪器）' },
-  'tone-membrane-synth': { kind: 'tone-poly', factory: () => new window.Tone.MembraneSynth(), label: 'Tone MembraneSynth（鼓膜）' },
-  'tone-metal-synth': { kind: 'tone-poly', factory: () => new window.Tone.MetalSynth(), label: 'Tone MetalSynth（金屬）' },
-  'tone-pluck-synth': { kind: 'tone-poly', factory: () => new window.Tone.PluckSynth(), label: 'Tone PluckSynth（撥弦）' },
+  'tone-synth': { kind: 'tone-poly', synthType: 'Synth', label: 'Tone Synth（經典）' },
+  'tone-am-synth': { kind: 'tone-poly', synthType: 'AMSynth', label: 'Tone AMSynth（AM）' },
+  'tone-fm-synth': { kind: 'tone-poly', synthType: 'FMSynth', label: 'Tone FMSynth（FM）' },
+  'tone-mono-synth': { kind: 'tone-poly', synthType: 'MonoSynth', label: 'Tone MonoSynth（單音）' },
+  'tone-duo-synth': { kind: 'tone-poly', synthType: 'DuoSynth', label: 'Tone DuoSynth（雙振盪器）' },
+  'tone-membrane-synth': { kind: 'tone-poly', synthType: 'MembraneSynth', label: 'Tone MembraneSynth（鼓膜）' },
+  'tone-metal-synth': { kind: 'tone-poly', synthType: 'MetalSynth', label: 'Tone MetalSynth（金屬）' },
+  'tone-pluck-synth': { kind: 'tone-poly', synthType: 'PluckSynth', label: 'Tone PluckSynth（撥弦）' },
   'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
   'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
   'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
@@ -815,15 +815,30 @@ function createBerkleeSampler(sampleUrl) {
   }).toDestination();
 }
 
-function createTonePolySynth(factory) {
-  return new window.Tone.PolySynth(factory).toDestination();
+function routeToDestination(node) {
+  if (!node) return node;
+  if (typeof node.toDestination === 'function') {
+    return node.toDestination();
+  }
+  if (typeof node.toMaster === 'function') {
+    return node.toMaster();
+  }
+  return node;
+}
+
+function createTonePolySynth(synthType) {
+  const SynthClass = window.Tone?.[synthType];
+  if (typeof SynthClass !== 'function') {
+    throw new Error(`Tone.js 無法建立 ${synthType}`);
+  }
+  return routeToDestination(new window.Tone.PolySynth(SynthClass));
 }
 
 function createTonejsInstrumentSampler(instrumentName) {
   if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
     throw new Error('tonejs-instruments 未載入');
   }
-  return window.SampleLibrary.load({ instruments: instrumentName }).toDestination();
+  return routeToDestination(window.SampleLibrary.load({ instruments: instrumentName }));
 }
 
 async function getInstrumentNode(instrument) {
@@ -841,7 +856,7 @@ async function getInstrumentNode(instrument) {
   if (config.kind === 'sampler') {
     node = createTonePianoSampler();
   } else if (config.kind === 'tone-poly') {
-    node = createTonePolySynth(config.factory);
+    node = createTonePolySynth(config.synthType);
   } else if (config.kind === 'tonejs-instruments') {
     node = createTonejsInstrumentSampler(config.instrumentName);
   } else if (config.kind === 'berklee-sampler') {
