@@ -33,7 +33,7 @@ let timerAnchorEnabled = false;
 let titleIntervalId = null;
 let pianoAudioContext = null;
 let pianoMasterGain = null;
-let toneSampler = null;
+const instrumentNodes = new Map();
 let activeInstrument = 'tone-piano';
 let activeKeyboardSize = 88;
 const activeNotes = new Map();
@@ -46,6 +46,26 @@ let editingButtonIndex = null;
 let replacerDraft = { name: '', rules: [] };
 let activeRemoveConfirmHost = null;
 let activeDeleteButtonConfirm = null;
+
+const INSTRUMENT_LIBRARY = {
+  'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
+  'tone-synth': { kind: 'tone-poly', synthType: 'Synth', label: 'Tone Synth（經典）' },
+  'tone-am-synth': { kind: 'tone-poly', synthType: 'AMSynth', label: 'Tone AMSynth（AM）' },
+  'tone-fm-synth': { kind: 'tone-poly', synthType: 'FMSynth', label: 'Tone FMSynth（FM）' },
+  'tone-mono-synth': { kind: 'tone-poly', synthType: 'MonoSynth', label: 'Tone MonoSynth（單音）' },
+  'tone-duo-synth': { kind: 'tone-poly', synthType: 'DuoSynth', label: 'Tone DuoSynth（雙振盪器）' },
+  'tone-membrane-synth': { kind: 'tone-poly', synthType: 'MembraneSynth', label: 'Tone MembraneSynth（鼓膜）' },
+  'tone-metal-synth': { kind: 'tone-poly', synthType: 'MetalSynth', label: 'Tone MetalSynth（金屬）' },
+  'tone-pluck-synth': { kind: 'tone-pluck', label: 'Tone PluckSynth（撥弦）' },
+  'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
+  'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
+  'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
+  'berklee-gong': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gong_1.mp3', label: 'Berklee Gong' },
+  'berklee-theremin': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gurgling_theremin_1.mp3', label: 'Berklee Gurgling Theremin' },
+  'builtin-12tet': { kind: 'builtin', label: '內建合成（12 平均律）' },
+  'builtin-just': { kind: 'builtin', label: '內建合成（純律）' },
+  'builtin-pythagorean': { kind: 'builtin', label: '內建合成（5 度相生律）' },
+};
 
 function formatElapsedParts(milliseconds) {
   const totalMilliseconds = Math.max(0, Math.floor(milliseconds));
@@ -755,13 +775,17 @@ function ensureAudioContext() {
   return pianoAudioContext;
 }
 
-async function initToneSampler() {
-  const status = document.getElementById('piano-status');
-  if (!window.Tone) {
-    status.textContent = 'Tone.js 載入失敗，請改用內建合成音源。';
-    return;
-  }
-  toneSampler = new window.Tone.Sampler({
+function ensureToneAvailable() {
+  return Boolean(window.Tone);
+}
+
+async function ensureToneStarted() {
+  if (!ensureToneAvailable()) return;
+  await window.Tone.start();
+}
+
+function createTonePianoSampler() {
+  return new window.Tone.Sampler({
     urls: {
       C1: 'C1.mp3',
       A1: 'A1.mp3',
@@ -780,16 +804,79 @@ async function initToneSampler() {
       C8: 'C8.mp3',
     },
     baseUrl: 'https://tonejs.github.io/audio/salamander/',
-    onload: () => {
-      if (activeInstrument === 'tone-piano') {
-        status.textContent = 'Tone.js 鋼琴音源已就緒（Salamander 取樣）。';
-      }
+  }).toDestination();
+}
+
+function createBerkleeSampler(sampleUrl) {
+  return new window.Tone.Sampler({
+    urls: {
+      C4: sampleUrl,
     },
   }).toDestination();
+}
 
-  if (activeInstrument === 'tone-piano') {
-    status.textContent = '正在載入 Tone.js 鋼琴音源...';
+function routeToDestination(node) {
+  if (!node) return node;
+  if (typeof node.toDestination === 'function') {
+    return node.toDestination();
   }
+  if (typeof node.toMaster === 'function') {
+    return node.toMaster();
+  }
+  return node;
+}
+
+function createTonePolySynth(synthType) {
+  const SynthClass = window.Tone?.[synthType];
+  if (typeof SynthClass !== 'function') {
+    throw new Error(`Tone.js 無法建立 ${synthType}`);
+  }
+  return routeToDestination(new window.Tone.PolySynth(SynthClass));
+}
+
+function createTonejsInstrumentSampler(instrumentName) {
+  if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
+    throw new Error('tonejs-instruments 未載入');
+  }
+  const loaded = window.SampleLibrary.load({ instruments: instrumentName });
+  const node = loaded?.[instrumentName] || loaded;
+  if (!node || typeof node.triggerAttack !== 'function') {
+    throw new Error(`tonejs-instruments 音色 ${instrumentName} 載入失敗`);
+  }
+  return routeToDestination(node);
+}
+
+function createTonePluckSynth() {
+  return routeToDestination(new window.Tone.PluckSynth());
+}
+
+async function getInstrumentNode(instrument) {
+  const config = INSTRUMENT_LIBRARY[instrument];
+  if (!config || config.kind === 'builtin') {
+    return null;
+  }
+  if (!ensureToneAvailable()) {
+    throw new Error('Tone.js 載入失敗');
+  }
+  if (instrumentNodes.has(instrument)) {
+    return instrumentNodes.get(instrument);
+  }
+  let node = null;
+  if (config.kind === 'sampler') {
+    node = createTonePianoSampler();
+  } else if (config.kind === 'tone-poly') {
+    node = createTonePolySynth(config.synthType);
+  } else if (config.kind === 'tone-pluck') {
+    node = createTonePluckSynth();
+  } else if (config.kind === 'tonejs-instruments') {
+    node = createTonejsInstrumentSampler(config.instrumentName);
+  } else if (config.kind === 'berklee-sampler') {
+    node = createBerkleeSampler(config.sampleUrl);
+  }
+  if (node) {
+    instrumentNodes.set(instrument, node);
+  }
+  return node;
 }
 
 function noteOnSynth(midiNote) {
@@ -821,45 +908,103 @@ function noteOffSynth(midiNote) {
   activeNotes.delete(`synth-${midiNote}`);
 }
 
-function noteOn(midiNote) {
-  if (activeInstrument === 'tone-piano') {
-    if (window.Tone) {
-      window.Tone.start();
-    }
-    if (toneSampler) {
-      toneSampler.triggerAttack(window.Tone.Frequency(midiNote, 'midi'));
-      return;
+async function noteOn(midiNote) {
+  const config = INSTRUMENT_LIBRARY[activeInstrument];
+  if (config && config.kind !== 'builtin') {
+    try {
+      await ensureToneStarted();
+      const node = await getInstrumentNode(activeInstrument);
+      const noteName = window.Tone?.Frequency(midiNote, 'midi').toNote();
+      if (node && noteName && typeof node.triggerAttack === 'function') {
+        node.triggerAttack(noteName);
+        activeNotes.set(`tone-${midiNote}`, {
+          node,
+          noteName,
+          kind: config.kind,
+        });
+        return;
+      }
+    } catch (error) {
+      // Fallback to built-in synth
     }
   }
   noteOnSynth(midiNote);
 }
 
 function noteOff(midiNote) {
-  if (activeInstrument === 'tone-piano') {
-    if (toneSampler && window.Tone) {
-      toneSampler.triggerRelease(window.Tone.Frequency(midiNote, 'midi'));
+  const activeToneNote = activeNotes.get(`tone-${midiNote}`);
+  if (activeToneNote) {
+    const { node, noteName, kind } = activeToneNote;
+    if (node && typeof node.triggerRelease === 'function') {
+      node.triggerRelease(noteName);
+      activeNotes.delete(`tone-${midiNote}`);
+      return;
+    }
+    if (kind === 'tone-pluck') {
+      activeNotes.delete(`tone-${midiNote}`);
       return;
     }
   }
   noteOffSynth(midiNote);
 }
 
+function stopAllPlayingNotes() {
+  const toneEntries = [];
+  const synthMidiNotes = [];
+  activeNotes.forEach((value, key) => {
+    if (key.startsWith('tone-')) {
+      toneEntries.push(value);
+      return;
+    }
+    if (key.startsWith('synth-')) {
+      const midi = Number.parseInt(key.replace('synth-', ''), 10);
+      if (Number.isFinite(midi)) {
+        synthMidiNotes.push(midi);
+      }
+    }
+  });
+
+  toneEntries.forEach((entry) => {
+    if (entry?.node && typeof entry.node.triggerRelease === 'function') {
+      entry.node.triggerRelease(entry.noteName);
+    }
+  });
+  synthMidiNotes.forEach((midi) => noteOffSynth(midi));
+  activeNotes.clear();
+}
+
 function updateActiveInstrument(instrument) {
+  stopAllPlayingNotes();
   activeInstrument = instrument;
   const status = document.getElementById('piano-status');
-  if (instrument === 'tone-piano') {
-    status.textContent = toneSampler ? 'Tone.js 鋼琴音源已就緒（Salamander 取樣）。' : '正在載入 Tone.js 鋼琴音源...';
+  const config = INSTRUMENT_LIBRARY[instrument];
+  if (!config) {
+    status.textContent = '找不到指定音色，已使用內建合成音源（12 平均律）。';
+    activeInstrument = 'builtin-12tet';
     return;
   }
-  if (instrument === 'builtin-just') {
-    status.textContent = '使用內建合成音源（純律）。';
+  if (config.kind === 'builtin') {
+    status.textContent = `使用${config.label}。`;
     return;
   }
-  if (instrument === 'builtin-pythagorean') {
-    status.textContent = '使用內建合成音源（5 度相生律）。';
+  if (!ensureToneAvailable()) {
+    status.textContent = `Tone.js 載入失敗，改用內建合成音源（12 平均律）。`;
+    activeInstrument = 'builtin-12tet';
     return;
   }
-  status.textContent = '使用內建合成音源（12 平均律）。';
+  getInstrumentNode(instrument)
+    .then(() => {
+      if (activeInstrument === instrument) {
+        status.textContent = `已載入 ${config.label}。`;
+      }
+    })
+    .catch(() => {
+      if (activeInstrument === instrument) {
+        status.textContent = `載入 ${config.label} 失敗，改用內建合成音源（12 平均律）。`;
+        activeInstrument = 'builtin-12tet';
+      }
+    });
+  status.textContent = `正在載入 ${config.label}...`;
 }
 
 function releaseVisualKey(midiNote) {
@@ -963,7 +1108,6 @@ function bindPianoInput() {
     const key = event.target.closest('.piano-key');
     if (!key) return;
     playFromTarget(key);
-    key.setPointerCapture(event.pointerId);
   });
 
   keyboard.addEventListener('pointermove', (event) => {
@@ -1041,7 +1185,6 @@ function initPiano() {
   refreshShortcutMap();
   renderPianoKeyboard();
   bindPianoInput();
-  initToneSampler();
   updateActiveInstrument(activeInstrument);
 }
 
