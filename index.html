@@ -15,6 +15,7 @@
                 <button id="tab-midi-abc" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-midi-abc" tabindex="-1">MIDI 轉 ABC</button>
                 <button id="tab-piano" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-piano" tabindex="-1">鋼琴鍵盤</button>
                 <button id="tab-text-replacer" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-text-replacer" tabindex="-1">文字取代器</button>
+                <button id="tab-password-manager" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-password-manager" tabindex="-1">密碼管理器</button>
             </div>
         </aside>
 
@@ -189,6 +190,44 @@
 
                         <div id="rules-container" class="editor-row bottom"></div>
                     </section>
+                </article>
+            </section>
+
+            <section id="panel-password-manager" class="tool-panel" role="tabpanel" aria-labelledby="tab-password-manager" data-tab-panel="tab-password-manager" hidden>
+                <article class="placeholder-card password-manager-card">
+                    <header class="card-header">
+                        <h1>密碼管理器</h1>
+                        <p class="card-description">使用瀏覽器加密隨機來源產生高強度密碼，可選擇字元集並排除易混淆字元。</p>
+                    </header>
+
+                    <div class="password-manager-layout">
+                        <section class="password-controls" aria-label="密碼生成設定">
+                            <div class="password-length-row">
+                                <label for="password-length">密碼長度</label>
+                                <input id="password-length" type="number" min="4" max="256" step="1" value="20" inputmode="numeric">
+                            </div>
+
+                            <div class="switch-grid" role="group" aria-label="字元選項">
+                                <label class="switch-row"><span>a-z 小寫字母</span><input id="password-lowercase" type="checkbox" checked><span class="switch-slider" aria-hidden="true"></span></label>
+                                <label class="switch-row"><span>A-Z 大寫字母</span><input id="password-uppercase" type="checkbox" checked><span class="switch-slider" aria-hidden="true"></span></label>
+                                <label class="switch-row"><span>0-9 數字</span><input id="password-digits" type="checkbox" checked><span class="switch-slider" aria-hidden="true"></span></label>
+                                <label class="switch-row"><span>常用符號</span><input id="password-common-symbols" type="checkbox" checked><span class="switch-slider" aria-hidden="true"></span></label>
+                                <label class="switch-row"><span>罕用符號</span><input id="password-rare-symbols" type="checkbox"><span class="switch-slider" aria-hidden="true"></span></label>
+                                <label class="switch-row"><span>排除混淆字元（0/O/1/I/l）</span><input id="password-exclude-ambiguous" type="checkbox" checked><span class="switch-slider" aria-hidden="true"></span></label>
+                            </div>
+
+                            <div class="preset-buttons">
+                                <button id="password-generate" type="button">生成密碼</button>
+                                <button id="password-copy" type="button">複製密碼</button>
+                            </div>
+                            <p id="password-status" class="helper-text" role="status" aria-live="polite">請調整設定後產生密碼。</p>
+                        </section>
+
+                        <section class="password-result" aria-label="密碼輸出">
+                            <label for="password-output">生成結果</label>
+                            <textarea id="password-output" rows="4" readonly placeholder="密碼會顯示在這裡"></textarea>
+                        </section>
+                    </div>
                 </article>
             </section>
         </main>

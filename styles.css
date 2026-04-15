@@ -679,3 +679,99 @@ select:focus-visible {
     max-width: 420px;
   }
 }
+
+.password-manager-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.password-controls,
+.password-result {
+  border: 1px solid #dbe2ea;
+  border-radius: 0.85rem;
+  background: rgba(248, 250, 252, 0.7);
+  padding: 0.9rem;
+}
+
+.password-length-row {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.8rem;
+}
+
+.switch-grid {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.switch-row input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.switch-slider {
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  position: relative;
+  transition: background 0.18s ease;
+}
+
+.switch-slider::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.22);
+  transition: transform 0.18s ease;
+}
+
+.switch-row input:checked + .switch-slider {
+  background: #2563eb;
+}
+
+.switch-row input:checked + .switch-slider::after {
+  transform: translateX(20px);
+}
+
+.switch-row input:focus-visible + .switch-slider {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 2px;
+}
+
+#password-generate {
+  background: #14532d;
+  border-color: #14532d;
+  color: #fff;
+}
+
+#password-output {
+  min-height: 8rem;
+  font-family: 'Cascadia Code', 'JetBrains Mono', 'Consolas', 'SFMono-Regular', ui-monospace, Menlo, monospace;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  line-height: 1.8;
+}
+
+@media (max-width: 980px) {
+  .password-manager-layout {
+    grid-template-columns: 1fr;
+  }
+}

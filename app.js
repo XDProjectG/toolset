@@ -47,6 +47,15 @@ let replacerDraft = { name: '', rules: [] };
 let activeRemoveConfirmHost = null;
 let activeDeleteButtonConfirm = null;
 
+const PASSWORD_CHARSETS = {
+  lowercase: 'abcdefghijklmnopqrstuvwxyz',
+  uppercase: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+  digits: '0123456789',
+  commonSymbols: '!@#$%^&*()-_=+[]{};:,.?/',
+  rareSymbols: '"`~\|<>',
+};
+const AMBIGUOUS_CHARS = new Set(['0', 'O', '1', 'I', 'l']);
+
 const INSTRUMENT_LIBRARY = {
   'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
   'tone-synth': { kind: 'tone-poly', synthType: 'Synth', label: 'Tone Synth（經典）' },
@@ -1517,6 +1526,113 @@ function importReplacerProfile() {
   }
 }
 
+
+function getPasswordSettings() {
+  return {
+    length: Number.parseInt(document.getElementById('password-length').value, 10),
+    lowercase: document.getElementById('password-lowercase').checked,
+    uppercase: document.getElementById('password-uppercase').checked,
+    digits: document.getElementById('password-digits').checked,
+    commonSymbols: document.getElementById('password-common-symbols').checked,
+    rareSymbols: document.getElementById('password-rare-symbols').checked,
+    excludeAmbiguous: document.getElementById('password-exclude-ambiguous').checked,
+  };
+}
+
+function buildPasswordCharset(settings) {
+  const selectedSets = [];
+  if (settings.lowercase) selectedSets.push(PASSWORD_CHARSETS.lowercase);
+  if (settings.uppercase) selectedSets.push(PASSWORD_CHARSETS.uppercase);
+  if (settings.digits) selectedSets.push(PASSWORD_CHARSETS.digits);
+  if (settings.commonSymbols) selectedSets.push(PASSWORD_CHARSETS.commonSymbols);
+  if (settings.rareSymbols) selectedSets.push(PASSWORD_CHARSETS.rareSymbols);
+
+  let charset = selectedSets.join('');
+  if (settings.excludeAmbiguous) {
+    charset = [...charset].filter((char) => !AMBIGUOUS_CHARS.has(char)).join('');
+  }
+  return charset;
+}
+
+function cryptoRandomInt(maxExclusive) {
+  if (!Number.isInteger(maxExclusive) || maxExclusive <= 0 || maxExclusive > 65536) {
+    throw new Error('隨機範圍無效。');
+  }
+
+  const maxUint = 65536;
+  const cutoff = maxUint - (maxUint % maxExclusive);
+  const buf = new Uint16Array(1);
+
+  while (true) {
+    window.crypto.getRandomValues(buf);
+    const value = buf[0];
+    if (value < cutoff) {
+      return value % maxExclusive;
+    }
+  }
+}
+
+function generatePassword(length, charset) {
+  const chars = [...charset];
+  const generated = [];
+  for (let i = 0; i < length; i += 1) {
+    generated.push(chars[cryptoRandomInt(chars.length)]);
+  }
+  return generated.join('');
+}
+
+function updatePasswordStatus(message) {
+  document.getElementById('password-status').textContent = message;
+}
+
+function handleGeneratePassword() {
+  const output = document.getElementById('password-output');
+  if (!window.crypto?.getRandomValues) {
+    updatePasswordStatus('此瀏覽器不支援加密等級隨機來源。');
+    output.value = '';
+    return;
+  }
+
+  const settings = getPasswordSettings();
+  const length = Number.isFinite(settings.length) ? settings.length : NaN;
+  const charset = buildPasswordCharset(settings);
+
+  if (!Number.isInteger(length) || length < 4 || length > 256) {
+    updatePasswordStatus('請輸入 4 到 256 之間的密碼長度。');
+    output.value = '';
+    return;
+  }
+
+  if (!charset) {
+    updatePasswordStatus('請至少啟用一種字元集。');
+    output.value = '';
+    return;
+  }
+
+  output.value = generatePassword(length, charset);
+  updatePasswordStatus(`已生成 ${length} 碼密碼（使用加密等級隨機來源）。`);
+}
+
+async function handleCopyPassword() {
+  const output = document.getElementById('password-output');
+  if (!output.value) {
+    updatePasswordStatus('目前尚無可複製的密碼。');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(output.value);
+    updatePasswordStatus('密碼已複製到剪貼簿。');
+  } catch (_error) {
+    updatePasswordStatus('無法自動複製，請手動選取後複製。');
+  }
+}
+
+function bindPasswordManager() {
+  document.getElementById('password-generate').addEventListener('click', handleGeneratePassword);
+  document.getElementById('password-copy').addEventListener('click', handleCopyPassword);
+}
+
 function bindTextReplacer() {
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
@@ -1604,6 +1720,7 @@ function bindEvents() {
   bindTimerSettings();
   initPiano();
   bindTextReplacer();
+  bindPasswordManager();
 
   document.addEventListener('visibilitychange', () => {
     updateDocumentTitle(getCurrentElapsed());
