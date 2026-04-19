@@ -1633,6 +1633,220 @@ function bindPasswordManager() {
   document.getElementById('password-copy').addEventListener('click', handleCopyPassword);
 }
 
+function parseInvoiceHeaderSpec(rawLine) {
+  const [, spec] = rawLine.split('=');
+  if (!spec) return null;
+  const columns = spec.split('|').map((part) => part.trim()).filter(Boolean);
+  if (columns.length === 0) return null;
+  const type = columns[0];
+  return { type, columns };
+}
+
+function parseInvoiceCsv(csvText) {
+  const lines = csvText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const headerSpec = {};
+  const detailSpec = {};
+  const invoices = [];
+  const invoicesByNumber = new Map();
+
+  lines.forEach((line) => {
+    if (line.startsWith('表頭=')) {
+      const spec = parseInvoiceHeaderSpec(line);
+      if (spec) spec.columns.forEach((name, index) => { headerSpec[index] = name; });
+      return;
+    }
+    if (line.startsWith('明細=')) {
+      const spec = parseInvoiceHeaderSpec(line);
+      if (spec) spec.columns.forEach((name, index) => { detailSpec[index] = name; });
+      return;
+    }
+
+    const cells = line.split('|');
+    const kind = cells[0];
+    if (kind === 'M') {
+      const data = {};
+      cells.forEach((cell, index) => {
+        const key = headerSpec[index] || `M${index}`;
+        data[key] = cell;
+      });
+      const invoiceNo = data.發票號碼;
+      if (!invoiceNo) return;
+
+      const invoice = { header: data, details: [] };
+      invoices.push(invoice);
+      invoicesByNumber.set(invoiceNo, invoice);
+      return;
+    }
+
+    if (kind === 'D') {
+      const data = {};
+      cells.forEach((cell, index) => {
+        const key = detailSpec[index] || `D${index}`;
+        data[key] = cell;
+      });
+      const invoiceNo = data.發票號碼;
+      const invoice = invoiceNo ? invoicesByNumber.get(invoiceNo) : null;
+      if (!invoice) return;
+      invoice.details.push(data);
+    }
+  });
+
+  return { invoices, headerSpec, detailSpec };
+}
+
+function parseFormatTemplate(template) {
+  const parts = [];
+  const regex = /\[([^\]]+)\]/g;
+  let lastIndex = 0;
+  let match = regex.exec(template);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', value: decodeEscapedText(template.slice(lastIndex, match.index)) });
+    }
+    parts.push({ type: 'token', value: match[1].trim() });
+    lastIndex = regex.lastIndex;
+    match = regex.exec(template);
+  }
+
+  if (lastIndex < template.length) {
+    parts.push({ type: 'text', value: decodeEscapedText(template.slice(lastIndex)) });
+  }
+
+  return parts;
+}
+
+function decodeEscapedText(text) {
+  return String(text).replace(/\\([\\'"nrtbfv])/g, (_all, token) => {
+    const escapeMap = {
+      '\\': '\\',
+      '\'': '\'',
+      '"': '"',
+      n: '\n',
+      r: '\r',
+      t: '\t',
+      b: '\b',
+      f: '\f',
+      v: '\v',
+    };
+    return escapeMap[token] ?? token;
+  });
+}
+
+function parseTokenOptions(tokenBody) {
+  const tokenMatch = tokenBody.match(/^([^,]+)(?:,\s*'([^']*)')?(?:,\s*(\d+))?$/);
+  if (!tokenMatch) return null;
+  const field = tokenMatch[1].trim();
+  const joiner = tokenMatch[2] === undefined ? undefined : decodeEscapedText(tokenMatch[2]);
+  const padDigits = tokenMatch[3] ? Number.parseInt(tokenMatch[3], 10) : null;
+  return { field, joiner, padDigits };
+}
+
+function formatInvoiceDate(rawDate, separator = '/', padDigits = null) {
+  const dateText = String(rawDate || '').trim();
+  if (!/^\d{8}$/.test(dateText)) return dateText;
+  const year = dateText.slice(0, 4);
+  const monthNum = Number.parseInt(dateText.slice(4, 6), 10);
+  const dayNum = Number.parseInt(dateText.slice(6, 8), 10);
+  const month = padDigits ? String(monthNum).padStart(padDigits, '0') : String(monthNum);
+  const day = padDigits ? String(dayNum).padStart(padDigits, '0') : String(dayNum);
+  return `${year}${separator}${month}${separator}${day}`;
+}
+
+function joinSubtotals(values, joiner) {
+  if (joiner !== '+') {
+    return values.join(joiner);
+  }
+
+  return values.reduce((output, value) => {
+    if (!output) return value;
+    return value.startsWith('-') ? `${output}${value}` : `${output}+${value}`;
+  }, '');
+}
+
+function resolveInvoiceField(invoice, field, options, detailFields) {
+  const headerValue = invoice.header[field];
+  if (field === '發票日期') {
+    const separator = options.joiner ?? '/';
+    return formatInvoiceDate(headerValue, separator, options.padDigits);
+  }
+
+  if (headerValue !== undefined) {
+    return String(headerValue);
+  }
+
+  const values = detailFields.has(field)
+    ? invoice.details.map((detail) => String(detail[field] ?? '')).filter((value) => value !== '')
+    : [];
+  if (values.length === 0) return '';
+
+  const joiner = options.joiner ?? ' ';
+  if (field === '小計') {
+    return joinSubtotals(values, joiner);
+  }
+  return values.join(joiner);
+}
+
+function summarizeInvoices(csvText, formatText) {
+  const { invoices, detailSpec } = parseInvoiceCsv(csvText);
+  const templateParts = parseFormatTemplate(formatText);
+  const detailFields = new Set(Object.values(detailSpec));
+
+  return invoices.map((invoice) => templateParts.map((part) => {
+    if (part.type === 'text') return part.value;
+    const options = parseTokenOptions(part.value);
+    if (!options) return '';
+    return resolveInvoiceField(invoice, options.field, options, detailFields);
+  }).join('')).join('\n');
+}
+
+function setInvoiceSummaryStatus(message) {
+  document.getElementById('invoice-summary-status').textContent = message;
+}
+
+function handleInvoiceSummary() {
+  const csvText = document.getElementById('invoice-csv-input').value;
+  const formatText = document.getElementById('invoice-format-input').value.trim();
+  const output = document.getElementById('invoice-summary-output');
+
+  if (!csvText.trim()) {
+    output.value = '';
+    setInvoiceSummaryStatus('請先輸入財政部電子發票 CSV 內容。');
+    return;
+  }
+  if (!formatText) {
+    output.value = '';
+    setInvoiceSummaryStatus('請先指定摘要格式。');
+    return;
+  }
+
+  const result = summarizeInvoices(csvText, formatText);
+  output.value = result;
+  setInvoiceSummaryStatus(result ? '摘要完成。' : '找不到可輸出的發票資料。');
+}
+
+async function copyInvoiceSummary() {
+  const output = document.getElementById('invoice-summary-output');
+  if (!output.value) {
+    setInvoiceSummaryStatus('目前沒有可複製的摘要內容。');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(output.value);
+    setInvoiceSummaryStatus('摘要已複製到剪貼簿。');
+  } catch (error) {
+    output.select();
+    output.setSelectionRange(0, output.value.length);
+    const copied = document.execCommand('copy');
+    setInvoiceSummaryStatus(copied ? '摘要已複製到剪貼簿。' : '複製失敗，請手動複製。');
+  }
+}
+
 function bindTextReplacer() {
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
@@ -1721,6 +1935,8 @@ function bindEvents() {
   initPiano();
   bindTextReplacer();
   bindPasswordManager();
+  document.getElementById('invoice-summarize').addEventListener('click', handleInvoiceSummary);
+  document.getElementById('copy-invoice-summary').addEventListener('click', copyInvoiceSummary);
 
   document.addEventListener('visibilitychange', () => {
     updateDocumentTitle(getCurrentElapsed());

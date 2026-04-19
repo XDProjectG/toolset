@@ -390,6 +390,34 @@ select:focus-visible {
   gap: 1rem;
 }
 
+.invoice-summary-card {
+  display: grid;
+  gap: 1rem;
+}
+
+.invoice-input-stack,
+.invoice-output-stack {
+  max-width: none;
+}
+
+#invoice-csv-input,
+#invoice-summary-output {
+  min-height: 10rem;
+}
+
+.invoice-format-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+#invoice-summarize {
+  background: #14532d;
+  border-color: #14532d;
+  color: #fff;
+}
+
 .replacer-profile-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -672,6 +700,10 @@ select:focus-visible {
 
   .editor-row.top {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .invoice-format-row {
+    grid-template-columns: 1fr;
   }
 
   .piano-controls {
