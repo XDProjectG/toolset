@@ -1706,7 +1706,7 @@ function parseFormatTemplate(template) {
 
   while (match) {
     if (match.index > lastIndex) {
-      parts.push({ type: 'text', value: template.slice(lastIndex, match.index) });
+      parts.push({ type: 'text', value: decodeEscapedText(template.slice(lastIndex, match.index)) });
     }
     parts.push({ type: 'token', value: match[1].trim() });
     lastIndex = regex.lastIndex;
@@ -1714,17 +1714,34 @@ function parseFormatTemplate(template) {
   }
 
   if (lastIndex < template.length) {
-    parts.push({ type: 'text', value: template.slice(lastIndex) });
+    parts.push({ type: 'text', value: decodeEscapedText(template.slice(lastIndex)) });
   }
 
   return parts;
+}
+
+function decodeEscapedText(text) {
+  return String(text).replace(/\\([\\'"nrtbfv])/g, (_all, token) => {
+    const escapeMap = {
+      '\\': '\\',
+      '\'': '\'',
+      '"': '"',
+      n: '\n',
+      r: '\r',
+      t: '\t',
+      b: '\b',
+      f: '\f',
+      v: '\v',
+    };
+    return escapeMap[token] ?? token;
+  });
 }
 
 function parseTokenOptions(tokenBody) {
   const tokenMatch = tokenBody.match(/^([^,]+)(?:,\s*'([^']*)')?(?:,\s*(\d+))?$/);
   if (!tokenMatch) return null;
   const field = tokenMatch[1].trim();
-  const joiner = tokenMatch[2];
+  const joiner = tokenMatch[2] === undefined ? undefined : decodeEscapedText(tokenMatch[2]);
   const padDigits = tokenMatch[3] ? Number.parseInt(tokenMatch[3], 10) : null;
   return { field, joiner, padDigits };
 }
