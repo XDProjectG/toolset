@@ -16,6 +16,7 @@
                 <button id="tab-piano" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-piano" tabindex="-1">鋼琴鍵盤</button>
                 <button id="tab-text-replacer" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-text-replacer" tabindex="-1">文字取代器</button>
                 <button id="tab-password-manager" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-password-manager" tabindex="-1">密碼管理器</button>
+                <button id="tab-invoice-summary" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-invoice-summary" tabindex="-1">發票摘要</button>
             </div>
         </aside>
 
@@ -227,6 +228,35 @@
                             <label for="password-output">生成結果</label>
                             <textarea id="password-output" rows="4" readonly placeholder="密碼會顯示在這裡"></textarea>
                         </section>
+                    </div>
+                </article>
+            </section>
+
+            <section id="panel-invoice-summary" class="tool-panel" role="tabpanel" aria-labelledby="tab-invoice-summary" data-tab-panel="tab-invoice-summary" hidden>
+                <article class="placeholder-card invoice-summary-card">
+                    <header class="card-header">
+                        <h1>發票摘要</h1>
+                        <p class="card-description">貼上財政部電子發票 CSV 內容，依指定格式彙整輸出。</p>
+                    </header>
+
+                    <div class="control-stack invoice-input-stack">
+                        <label for="invoice-csv-input">電子發票 CSV 文字</label>
+                        <textarea id="invoice-csv-input" rows="12" placeholder="請貼上財政部電子發票 CSV 內容"></textarea>
+                    </div>
+
+                    <div class="invoice-format-row">
+                        <input id="invoice-format-input" type="text" placeholder="[商店店名]&#9;[品項名稱,' ']&#9;[總金額]&#9;[發票日期]&#9;[小計,'+']">
+                        <button id="invoice-summarize" type="button">摘要</button>
+                    </div>
+
+                    <p id="invoice-summary-status" class="helper-text" role="status" aria-live="polite">請貼上 CSV 並輸入格式。</p>
+
+                    <div class="control-stack invoice-output-stack">
+                        <label for="invoice-summary-output">摘要輸出</label>
+                        <textarea id="invoice-summary-output" rows="8" readonly placeholder="按下摘要後會顯示結果"></textarea>
+                        <div class="preset-buttons">
+                            <button id="copy-invoice-summary" type="button">複製摘要</button>
+                        </div>
                     </div>
                 </article>
             </section>
