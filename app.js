@@ -742,6 +742,20 @@ function createShortcutMap() {
   const map = new Map();
   const centerWhiteMidi = 60;
   const centerBlackMidi = 61;
+  const getPreviousWhiteMidi = (midiNote) => {
+    let cursor = midiNote - 1;
+    while (isBlackKey(cursor)) {
+      cursor -= 1;
+    }
+    return cursor;
+  };
+  const getNextWhiteMidi = (midiNote) => {
+    let cursor = midiNote + 1;
+    while (isBlackKey(cursor)) {
+      cursor += 1;
+    }
+    return cursor;
+  };
   const getPreviousBlackMidi = (midiNote) => {
     let cursor = midiNote - 1;
     while (!isBlackKey(cursor)) {
@@ -762,13 +776,13 @@ function createShortcutMap() {
 
   let whiteLeftMidi = centerWhiteMidi;
   [...PIANO_SHORTCUTS.whiteLeft].forEach((shortcut) => {
-    whiteLeftMidi -= whiteLeftMidi % 12 === 0 ? 1 : 2;
+    whiteLeftMidi = getPreviousWhiteMidi(whiteLeftMidi);
     map.set(shortcut, whiteLeftMidi);
   });
 
   let whiteRightMidi = centerWhiteMidi;
   [...PIANO_SHORTCUTS.whiteRight].forEach((shortcut) => {
-    whiteRightMidi += [4, 11].includes(whiteRightMidi % 12) ? 1 : 2;
+    whiteRightMidi = getNextWhiteMidi(whiteRightMidi);
     map.set(shortcut, whiteRightMidi);
   });
 
