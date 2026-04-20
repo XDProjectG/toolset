@@ -742,6 +742,20 @@ function createShortcutMap() {
   const map = new Map();
   const centerWhiteMidi = 60;
   const centerBlackMidi = 61;
+  const getPreviousBlackMidi = (midiNote) => {
+    let cursor = midiNote - 1;
+    while (!isBlackKey(cursor)) {
+      cursor -= 1;
+    }
+    return cursor;
+  };
+  const getNextBlackMidi = (midiNote) => {
+    let cursor = midiNote + 1;
+    while (!isBlackKey(cursor)) {
+      cursor += 1;
+    }
+    return cursor;
+  };
 
   map.set(PIANO_SHORTCUTS.whiteCenter, centerWhiteMidi);
   map.set(PIANO_SHORTCUTS.blackCenter, centerBlackMidi);
@@ -760,13 +774,13 @@ function createShortcutMap() {
 
   let blackLeftMidi = centerBlackMidi;
   [...PIANO_SHORTCUTS.blackLeft].forEach((shortcut) => {
-    blackLeftMidi -= blackLeftMidi % 12 === 10 ? 1 : 2;
+    blackLeftMidi = getPreviousBlackMidi(blackLeftMidi);
     map.set(shortcut, blackLeftMidi);
   });
 
   let blackRightMidi = centerBlackMidi;
   [...PIANO_SHORTCUTS.blackRight].forEach((shortcut) => {
-    blackRightMidi += [1, 6].includes(blackRightMidi % 12) ? 2 : 3;
+    blackRightMidi = getNextBlackMidi(blackRightMidi);
     map.set(shortcut, blackRightMidi);
   });
 
@@ -1035,10 +1049,15 @@ function noteOffSynth(midiNote) {
 
 async function noteOn(midiNote) {
   const config = INSTRUMENT_LIBRARY[activeInstrument];
+  const instrumentAtStart = activeInstrument;
   if (config && config.kind !== 'builtin') {
     try {
       await ensureToneStarted();
       const node = await getInstrumentNode(activeInstrument);
+      const tokens = heldNoteTokens.get(midiNote);
+      if (!tokens || tokens.size === 0 || activeInstrument !== instrumentAtStart) {
+        return;
+      }
       const noteName = window.Tone?.Frequency(midiNote, 'midi').toNote();
       if (node && noteName && typeof node.triggerAttack === 'function') {
         node.triggerAttack(noteName);
@@ -1052,6 +1071,10 @@ async function noteOn(midiNote) {
     } catch (error) {
       // Fallback to built-in synth
     }
+  }
+  const tokens = heldNoteTokens.get(midiNote);
+  if (!tokens || tokens.size === 0 || activeInstrument !== instrumentAtStart) {
+    return;
   }
   noteOnSynth(midiNote);
 }
