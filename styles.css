@@ -72,7 +72,8 @@ button:disabled {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
-select:focus-visible {
+select:focus-visible,
+.replacer-text-editor:focus-visible {
   outline: 3px solid rgba(59, 130, 246, 0.35);
   outline-offset: 2px;
 }
@@ -432,7 +433,30 @@ select:focus-visible {
 }
 
 #replacer-text {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.65rem;
+  background: #fff;
   min-height: 24rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+}
+
+#replacer-text:empty::before {
+  content: attr(data-placeholder);
+  color: #94a3b8;
+}
+
+#replacer-text.is-previewing {
+  background: #fffbeb;
+}
+
+#replacer-text mark {
+  background: #fde68a;
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.05rem;
 }
 
 .replacer-side {
