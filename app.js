@@ -36,9 +36,11 @@ let pianoMasterGain = null;
 const instrumentNodes = new Map();
 let activeInstrument = 'tone-piano';
 let activeKeyboardSize = 88;
+let pianoQuickLoadEnabled = true;
 const activeNotes = new Map();
 const keyElementsByMidi = new Map();
 const midiByShortcut = new Map();
+const tonejsInstrumentSampleFiles = new Map();
 let pointerDown = false;
 let pointerActiveMidi = null;
 const replacerButtons = [];
@@ -55,6 +57,30 @@ const PASSWORD_CHARSETS = {
   rareSymbols: '"`~\|<>',
 };
 const AMBIGUOUS_CHARS = new Set(['0', 'O', '1', 'I', 'l']);
+const TONEJS_INSTRUMENTS_BASE_URL = 'https://nbrosowsky.github.io/tonejs-instruments/samples/';
+const TONEJS_INSTRUMENTS_CONTENTS_API = 'https://api.github.com/repos/nbrosowsky/tonejs-instruments/contents/samples';
+const TONEJS_INSTRUMENTS = {
+  'bass-electric': { label: 'tonejs-instruments：Bass Electric' },
+  bassoon: { label: 'tonejs-instruments：Bassoon' },
+  cello: { label: 'tonejs-instruments：Cello' },
+  clarinet: { label: 'tonejs-instruments：Clarinet' },
+  contrabass: { label: 'tonejs-instruments：Contrabass' },
+  flute: { label: 'tonejs-instruments：Flute' },
+  'french-horn': { label: 'tonejs-instruments：French Horn' },
+  'guitar-acoustic': { label: 'tonejs-instruments：Guitar Acoustic' },
+  'guitar-electric': { label: 'tonejs-instruments：Guitar Electric' },
+  'guitar-nylon': { label: 'tonejs-instruments：Guitar Nylon' },
+  harmonium: { label: 'tonejs-instruments：Harmonium' },
+  harp: { label: 'tonejs-instruments：Harp' },
+  organ: { label: 'tonejs-instruments：Organ' },
+  piano: { label: 'tonejs-instruments：Piano' },
+  saxophone: { label: 'tonejs-instruments：Saxophone' },
+  trombone: { label: 'tonejs-instruments：Trombone' },
+  trumpet: { label: 'tonejs-instruments：Trumpet' },
+  tuba: { label: 'tonejs-instruments：Tuba' },
+  violin: { label: 'tonejs-instruments：Violin' },
+  xylophone: { label: 'tonejs-instruments：Xylophone' },
+};
 
 const INSTRUMENT_LIBRARY = {
   'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
@@ -74,9 +100,26 @@ const INSTRUMENT_LIBRARY = {
     },
     label: 'Tone PluckSynth（撥弦）',
   },
-  'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
-  'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
-  'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
+  'tji-bass-electric': { kind: 'tonejs-instruments', instrumentName: 'bass-electric', label: TONEJS_INSTRUMENTS['bass-electric'].label },
+  'tji-bassoon': { kind: 'tonejs-instruments', instrumentName: 'bassoon', label: TONEJS_INSTRUMENTS.bassoon.label },
+  'tji-cello': { kind: 'tonejs-instruments', instrumentName: 'cello', label: TONEJS_INSTRUMENTS.cello.label },
+  'tji-clarinet': { kind: 'tonejs-instruments', instrumentName: 'clarinet', label: TONEJS_INSTRUMENTS.clarinet.label },
+  'tji-contrabass': { kind: 'tonejs-instruments', instrumentName: 'contrabass', label: TONEJS_INSTRUMENTS.contrabass.label },
+  'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: TONEJS_INSTRUMENTS.flute.label },
+  'tji-french-horn': { kind: 'tonejs-instruments', instrumentName: 'french-horn', label: TONEJS_INSTRUMENTS['french-horn'].label },
+  'tji-guitar-acoustic': { kind: 'tonejs-instruments', instrumentName: 'guitar-acoustic', label: TONEJS_INSTRUMENTS['guitar-acoustic'].label },
+  'tji-guitar-electric': { kind: 'tonejs-instruments', instrumentName: 'guitar-electric', label: TONEJS_INSTRUMENTS['guitar-electric'].label },
+  'tji-guitar-nylon': { kind: 'tonejs-instruments', instrumentName: 'guitar-nylon', label: TONEJS_INSTRUMENTS['guitar-nylon'].label },
+  'tji-harmonium': { kind: 'tonejs-instruments', instrumentName: 'harmonium', label: TONEJS_INSTRUMENTS.harmonium.label },
+  'tji-harp': { kind: 'tonejs-instruments', instrumentName: 'harp', label: TONEJS_INSTRUMENTS.harp.label },
+  'tji-organ': { kind: 'tonejs-instruments', instrumentName: 'organ', label: TONEJS_INSTRUMENTS.organ.label },
+  'tji-piano': { kind: 'tonejs-instruments', instrumentName: 'piano', label: TONEJS_INSTRUMENTS.piano.label },
+  'tji-saxophone': { kind: 'tonejs-instruments', instrumentName: 'saxophone', label: TONEJS_INSTRUMENTS.saxophone.label },
+  'tji-trombone': { kind: 'tonejs-instruments', instrumentName: 'trombone', label: TONEJS_INSTRUMENTS.trombone.label },
+  'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: TONEJS_INSTRUMENTS.trumpet.label },
+  'tji-tuba': { kind: 'tonejs-instruments', instrumentName: 'tuba', label: TONEJS_INSTRUMENTS.tuba.label },
+  'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: TONEJS_INSTRUMENTS.violin.label },
+  'tji-xylophone': { kind: 'tonejs-instruments', instrumentName: 'xylophone', label: TONEJS_INSTRUMENTS.xylophone.label },
   'berklee-gong': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gong_1.mp3', label: 'Berklee Gong' },
   'berklee-theremin': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gurgling_theremin_1.mp3', label: 'Berklee Gurgling Theremin' },
   'builtin-12tet': { kind: 'builtin', label: '內建合成（12 平均律）' },
@@ -801,25 +844,87 @@ async function ensureToneStarted() {
   await window.Tone.start();
 }
 
+function isDownloadedSamplerInstrument(config) {
+  return config?.kind === 'sampler' || config?.kind === 'berklee-sampler' || config?.kind === 'tonejs-instruments';
+}
+
+function minifyStepBySampleCount(sampleCount) {
+  if (sampleCount >= 49) return 6;
+  if (sampleCount >= 33) return 4;
+  if (sampleCount >= 17) return 2;
+  return 1;
+}
+
+function minifySamplerEntries(entries) {
+  if (!pianoQuickLoadEnabled) {
+    return entries;
+  }
+  const step = minifyStepBySampleCount(entries.length);
+  if (step <= 1) {
+    return entries;
+  }
+  return entries.filter((_, index) => index % step === 0);
+}
+
+function toToneSamplerNote(fileName) {
+  const baseName = fileName.replace(/\.[^.]+$/u, '');
+  return baseName.replace(/^([A-G])s(-?\d+)$/u, '$1#$2');
+}
+
+function buildToneSamplerUrlsFromFileNames(fileNames) {
+  const urlEntries = fileNames
+    .filter((name) => /\.mp3$/iu.test(name))
+    .map((name) => [toToneSamplerNote(name), name]);
+  const reducedEntries = minifySamplerEntries(urlEntries);
+  const urls = {};
+  reducedEntries.forEach(([noteName, fileName]) => {
+    urls[noteName] = fileName;
+  });
+  return urls;
+}
+
+async function getTonejsInstrumentSampleFiles(instrumentName) {
+  if (tonejsInstrumentSampleFiles.has(instrumentName)) {
+    return tonejsInstrumentSampleFiles.get(instrumentName);
+  }
+  const response = await fetch(`${TONEJS_INSTRUMENTS_CONTENTS_API}/${instrumentName}`);
+  if (!response.ok) {
+    throw new Error(`tonejs-instruments 音色清單讀取失敗：${instrumentName}`);
+  }
+  const payload = await response.json();
+  if (!Array.isArray(payload)) {
+    throw new Error(`tonejs-instruments 音色清單格式錯誤：${instrumentName}`);
+  }
+  const fileNames = payload
+    .filter((item) => item && item.type === 'file' && typeof item.name === 'string' && /\.mp3$/iu.test(item.name))
+    .map((item) => item.name);
+  if (fileNames.length === 0) {
+    throw new Error(`tonejs-instruments 沒有可用的樣本檔：${instrumentName}`);
+  }
+  tonejsInstrumentSampleFiles.set(instrumentName, fileNames);
+  return fileNames;
+}
+
 function createTonePianoSampler() {
+  const urls = buildToneSamplerUrlsFromFileNames([
+    'C1.mp3',
+    'A1.mp3',
+    'C2.mp3',
+    'A2.mp3',
+    'C3.mp3',
+    'A3.mp3',
+    'C4.mp3',
+    'A4.mp3',
+    'C5.mp3',
+    'A5.mp3',
+    'C6.mp3',
+    'A6.mp3',
+    'C7.mp3',
+    'A7.mp3',
+    'C8.mp3',
+  ]);
   return new window.Tone.Sampler({
-    urls: {
-      C1: 'C1.mp3',
-      A1: 'A1.mp3',
-      C2: 'C2.mp3',
-      A2: 'A2.mp3',
-      C3: 'C3.mp3',
-      A3: 'A3.mp3',
-      C4: 'C4.mp3',
-      A4: 'A4.mp3',
-      C5: 'C5.mp3',
-      A5: 'A5.mp3',
-      C6: 'C6.mp3',
-      A6: 'A6.mp3',
-      C7: 'C7.mp3',
-      A7: 'A7.mp3',
-      C8: 'C8.mp3',
-    },
+    urls,
     baseUrl: 'https://tonejs.github.io/audio/salamander/',
   }).toDestination();
 }
@@ -851,17 +956,18 @@ function createTonePolySynth(synthType, synthOptions = {}) {
   return routeToDestination(new window.Tone.PolySynth(SynthClass, synthOptions));
 }
 
-function createTonejsInstrumentSampler(instrumentName) {
-  if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
-    throw new Error('tonejs-instruments 未載入');
+async function createTonejsInstrumentSampler(instrumentName) {
+  const manifest = TONEJS_INSTRUMENTS[instrumentName];
+  if (!manifest) {
+    throw new Error(`tonejs-instruments 不支援音色：${instrumentName}`);
   }
-  const loaded = window.SampleLibrary.load({
-    instruments: instrumentName,
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/',
-    minify: false,
+  const files = await getTonejsInstrumentSampleFiles(instrumentName);
+  const urls = buildToneSamplerUrlsFromFileNames(files);
+  const node = new window.Tone.Sampler({
+    urls,
+    baseUrl: `${TONEJS_INSTRUMENTS_BASE_URL}${instrumentName}/`,
   });
-  const node = loaded?.[instrumentName] || loaded;
-  if (!node || typeof node.triggerAttack !== 'function') {
+  if (typeof node.triggerAttack !== 'function') {
     throw new Error(`tonejs-instruments 音色 ${instrumentName} 載入失敗`);
   }
   return routeToDestination(node);
@@ -875,8 +981,11 @@ async function getInstrumentNode(instrument) {
   if (!ensureToneAvailable()) {
     throw new Error('Tone.js 載入失敗');
   }
-  if (instrumentNodes.has(instrument)) {
-    return instrumentNodes.get(instrument);
+  const nodeCacheKey = isDownloadedSamplerInstrument(config)
+    ? `${instrument}::${pianoQuickLoadEnabled ? 'quick' : 'full'}`
+    : instrument;
+  if (instrumentNodes.has(nodeCacheKey)) {
+    return instrumentNodes.get(nodeCacheKey);
   }
   let node = null;
   if (config.kind === 'sampler') {
@@ -884,13 +993,13 @@ async function getInstrumentNode(instrument) {
   } else if (config.kind === 'tone-poly') {
     node = createTonePolySynth(config.synthType, config.synthOptions);
   } else if (config.kind === 'tonejs-instruments') {
-    node = createTonejsInstrumentSampler(config.instrumentName);
+    node = await createTonejsInstrumentSampler(config.instrumentName);
   } else if (config.kind === 'berklee-sampler') {
     node = createBerkleeSampler(config.sampleUrl);
   }
   await window.Tone.loaded();
   if (node) {
-    instrumentNodes.set(instrument, node);
+    instrumentNodes.set(nodeCacheKey, node);
   }
   return node;
 }
@@ -986,6 +1095,23 @@ function stopAllPlayingNotes() {
   activeNotes.clear();
 }
 
+function disposeNodeIfPossible(node) {
+  if (node && typeof node.dispose === 'function') {
+    node.dispose();
+  }
+}
+
+function clearDownloadedSamplerCache() {
+  Array.from(instrumentNodes.keys()).forEach((cacheKey) => {
+    if (!cacheKey.includes('::')) {
+      return;
+    }
+    const node = instrumentNodes.get(cacheKey);
+    disposeNodeIfPossible(node);
+    instrumentNodes.delete(cacheKey);
+  });
+}
+
 function updateActiveInstrument(instrument) {
   stopAllPlayingNotes();
   activeInstrument = instrument;
@@ -1000,6 +1126,9 @@ function updateActiveInstrument(instrument) {
     status.textContent = `使用${config.label}。`;
     return;
   }
+  const loadModeText = isDownloadedSamplerInstrument(config)
+    ? (pianoQuickLoadEnabled ? '（快速載入）' : '（完整載入）')
+    : '';
   if (!ensureToneAvailable()) {
     status.textContent = `Tone.js 載入失敗，改用內建合成音源（12 平均律）。`;
     activeInstrument = 'builtin-12tet';
@@ -1008,7 +1137,7 @@ function updateActiveInstrument(instrument) {
   getInstrumentNode(instrument)
     .then(() => {
       if (activeInstrument === instrument) {
-        status.textContent = `已載入 ${config.label}。`;
+        status.textContent = `已載入 ${config.label}${loadModeText}。`;
       }
     })
     .catch(() => {
@@ -1017,7 +1146,7 @@ function updateActiveInstrument(instrument) {
         activeInstrument = 'builtin-12tet';
       }
     });
-  status.textContent = `正在載入 ${config.label}...`;
+  status.textContent = `正在載入 ${config.label}${loadModeText}...`;
 }
 
 function releaseVisualKey(midiNote) {
@@ -1148,6 +1277,7 @@ function bindPianoInput() {
   const keyboard = document.getElementById('piano-keyboard');
   const instrumentSelect = document.getElementById('instrument-select');
   const keyboardSizeSelect = document.getElementById('keyboard-size-select');
+  const quickLoadToggle = document.getElementById('piano-quick-load');
   const pressedByKeyboardCode = new Map();
   const pointerToken = 'pointer';
 
@@ -1236,6 +1366,15 @@ function bindPianoInput() {
     refreshShortcutMap();
     renderPianoKeyboard();
   });
+
+  quickLoadToggle?.addEventListener('change', () => {
+    pianoQuickLoadEnabled = Boolean(quickLoadToggle.checked);
+    clearDownloadedSamplerCache();
+    const currentConfig = INSTRUMENT_LIBRARY[activeInstrument];
+    if (currentConfig && isDownloadedSamplerInstrument(currentConfig)) {
+      updateActiveInstrument(activeInstrument);
+    }
+  });
 }
 
 function refreshShortcutMap() {
@@ -1250,6 +1389,8 @@ function refreshShortcutMap() {
 }
 
 function initPiano() {
+  const quickLoadToggle = document.getElementById('piano-quick-load');
+  pianoQuickLoadEnabled = quickLoadToggle ? quickLoadToggle.checked : true;
   refreshShortcutMap();
   renderPianoKeyboard();
   bindPianoInput();
