@@ -55,6 +55,51 @@ const PASSWORD_CHARSETS = {
   rareSymbols: '"`~\|<>',
 };
 const AMBIGUOUS_CHARS = new Set(['0', 'O', '1', 'I', 'l']);
+const TONEJS_INSTRUMENTS_BASE_URL = 'https://nbrosowsky.github.io/tonejs-instruments/samples/';
+const TONEJS_INSTRUMENTS_NOTE_SET = {
+  bassElectric: ['E2', 'A2', 'D3', 'G3', 'C4'],
+  bassoon: ['C2', 'G2', 'C3', 'G3', 'C4'],
+  cello: ['C2', 'G2', 'C3', 'G3', 'C4'],
+  clarinet: ['D3', 'A3', 'D4', 'A4', 'D5'],
+  contrabass: ['C2', 'E2', 'A2', 'D3', 'G3'],
+  flute: ['C4', 'G4', 'C5', 'G5', 'C6'],
+  frenchHorn: ['C3', 'G3', 'C4', 'G4', 'C5'],
+  guitarAcoustic: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+  guitarElectric: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+  guitarNylon: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'],
+  harmonium: ['C3', 'G3', 'C4', 'G4', 'C5'],
+  harp: ['C3', 'G3', 'C4', 'G4', 'C5'],
+  organ: ['C2', 'G2', 'C3', 'G3', 'C4', 'G4'],
+  piano: ['A0', 'C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7'],
+  saxophone: ['C3', 'G3', 'C4', 'G4', 'C5'],
+  trombone: ['E2', 'A2', 'D3', 'G3', 'C4'],
+  trumpet: ['C3', 'G3', 'C4', 'G4', 'C5'],
+  tuba: ['E1', 'A1', 'D2', 'G2', 'C3'],
+  violin: ['G3', 'D4', 'A4', 'E5', 'A5'],
+  xylophone: ['C4', 'G4', 'C5', 'G5', 'C6'],
+};
+const TONEJS_INSTRUMENTS = {
+  'bass-electric': { noteSet: 'bassElectric', label: 'tonejs-instruments：Bass Electric' },
+  bassoon: { noteSet: 'bassoon', label: 'tonejs-instruments：Bassoon' },
+  cello: { noteSet: 'cello', label: 'tonejs-instruments：Cello' },
+  clarinet: { noteSet: 'clarinet', label: 'tonejs-instruments：Clarinet' },
+  contrabass: { noteSet: 'contrabass', label: 'tonejs-instruments：Contrabass' },
+  flute: { noteSet: 'flute', label: 'tonejs-instruments：Flute' },
+  'french-horn': { noteSet: 'frenchHorn', label: 'tonejs-instruments：French Horn' },
+  'guitar-acoustic': { noteSet: 'guitarAcoustic', label: 'tonejs-instruments：Guitar Acoustic' },
+  'guitar-electric': { noteSet: 'guitarElectric', label: 'tonejs-instruments：Guitar Electric' },
+  'guitar-nylon': { noteSet: 'guitarNylon', label: 'tonejs-instruments：Guitar Nylon' },
+  harmonium: { noteSet: 'harmonium', label: 'tonejs-instruments：Harmonium' },
+  harp: { noteSet: 'harp', label: 'tonejs-instruments：Harp' },
+  organ: { noteSet: 'organ', label: 'tonejs-instruments：Organ' },
+  piano: { noteSet: 'piano', label: 'tonejs-instruments：Piano' },
+  saxophone: { noteSet: 'saxophone', label: 'tonejs-instruments：Saxophone' },
+  trombone: { noteSet: 'trombone', label: 'tonejs-instruments：Trombone' },
+  trumpet: { noteSet: 'trumpet', label: 'tonejs-instruments：Trumpet' },
+  tuba: { noteSet: 'tuba', label: 'tonejs-instruments：Tuba' },
+  violin: { noteSet: 'violin', label: 'tonejs-instruments：Violin' },
+  xylophone: { noteSet: 'xylophone', label: 'tonejs-instruments：Xylophone' },
+};
 
 const INSTRUMENT_LIBRARY = {
   'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
@@ -74,9 +119,26 @@ const INSTRUMENT_LIBRARY = {
     },
     label: 'Tone PluckSynth（撥弦）',
   },
-  'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: 'tonejs-instruments Violin' },
-  'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: 'tonejs-instruments Flute' },
-  'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: 'tonejs-instruments Trumpet' },
+  'tji-bass-electric': { kind: 'tonejs-instruments', instrumentName: 'bass-electric', label: TONEJS_INSTRUMENTS['bass-electric'].label },
+  'tji-bassoon': { kind: 'tonejs-instruments', instrumentName: 'bassoon', label: TONEJS_INSTRUMENTS.bassoon.label },
+  'tji-cello': { kind: 'tonejs-instruments', instrumentName: 'cello', label: TONEJS_INSTRUMENTS.cello.label },
+  'tji-clarinet': { kind: 'tonejs-instruments', instrumentName: 'clarinet', label: TONEJS_INSTRUMENTS.clarinet.label },
+  'tji-contrabass': { kind: 'tonejs-instruments', instrumentName: 'contrabass', label: TONEJS_INSTRUMENTS.contrabass.label },
+  'tji-flute': { kind: 'tonejs-instruments', instrumentName: 'flute', label: TONEJS_INSTRUMENTS.flute.label },
+  'tji-french-horn': { kind: 'tonejs-instruments', instrumentName: 'french-horn', label: TONEJS_INSTRUMENTS['french-horn'].label },
+  'tji-guitar-acoustic': { kind: 'tonejs-instruments', instrumentName: 'guitar-acoustic', label: TONEJS_INSTRUMENTS['guitar-acoustic'].label },
+  'tji-guitar-electric': { kind: 'tonejs-instruments', instrumentName: 'guitar-electric', label: TONEJS_INSTRUMENTS['guitar-electric'].label },
+  'tji-guitar-nylon': { kind: 'tonejs-instruments', instrumentName: 'guitar-nylon', label: TONEJS_INSTRUMENTS['guitar-nylon'].label },
+  'tji-harmonium': { kind: 'tonejs-instruments', instrumentName: 'harmonium', label: TONEJS_INSTRUMENTS.harmonium.label },
+  'tji-harp': { kind: 'tonejs-instruments', instrumentName: 'harp', label: TONEJS_INSTRUMENTS.harp.label },
+  'tji-organ': { kind: 'tonejs-instruments', instrumentName: 'organ', label: TONEJS_INSTRUMENTS.organ.label },
+  'tji-piano': { kind: 'tonejs-instruments', instrumentName: 'piano', label: TONEJS_INSTRUMENTS.piano.label },
+  'tji-saxophone': { kind: 'tonejs-instruments', instrumentName: 'saxophone', label: TONEJS_INSTRUMENTS.saxophone.label },
+  'tji-trombone': { kind: 'tonejs-instruments', instrumentName: 'trombone', label: TONEJS_INSTRUMENTS.trombone.label },
+  'tji-trumpet': { kind: 'tonejs-instruments', instrumentName: 'trumpet', label: TONEJS_INSTRUMENTS.trumpet.label },
+  'tji-tuba': { kind: 'tonejs-instruments', instrumentName: 'tuba', label: TONEJS_INSTRUMENTS.tuba.label },
+  'tji-violin': { kind: 'tonejs-instruments', instrumentName: 'violin', label: TONEJS_INSTRUMENTS.violin.label },
+  'tji-xylophone': { kind: 'tonejs-instruments', instrumentName: 'xylophone', label: TONEJS_INSTRUMENTS.xylophone.label },
   'berklee-gong': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gong_1.mp3', label: 'Berklee Gong' },
   'berklee-theremin': { kind: 'berklee-sampler', sampleUrl: 'https://tonejs.github.io/audio/berklee/gurgling_theremin_1.mp3', label: 'Berklee Gurgling Theremin' },
   'builtin-12tet': { kind: 'builtin', label: '內建合成（12 平均律）' },
@@ -852,16 +914,20 @@ function createTonePolySynth(synthType, synthOptions = {}) {
 }
 
 function createTonejsInstrumentSampler(instrumentName) {
-  if (!window.SampleLibrary || typeof window.SampleLibrary.load !== 'function') {
-    throw new Error('tonejs-instruments 未載入');
+  const manifest = TONEJS_INSTRUMENTS[instrumentName];
+  if (!manifest) {
+    throw new Error(`tonejs-instruments 不支援音色：${instrumentName}`);
   }
-  const loaded = window.SampleLibrary.load({
-    instruments: instrumentName,
-    baseUrl: 'https://nbrosowsky.github.io/tonejs-instruments/samples/',
-    minify: false,
+  const urls = {};
+  const noteSet = TONEJS_INSTRUMENTS_NOTE_SET[manifest.noteSet] || ['C4'];
+  for (const note of noteSet) {
+    urls[note] = `${note}.mp3`;
+  }
+  const node = new window.Tone.Sampler({
+    urls,
+    baseUrl: `${TONEJS_INSTRUMENTS_BASE_URL}${instrumentName}/`,
   });
-  const node = loaded?.[instrumentName] || loaded;
-  if (!node || typeof node.triggerAttack !== 'function') {
+  if (typeof node.triggerAttack !== 'function') {
     throw new Error(`tonejs-instruments 音色 ${instrumentName} 載入失敗`);
   }
   return routeToDestination(node);
