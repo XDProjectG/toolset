@@ -1314,6 +1314,74 @@ function collectRuleMatches(text, rule) {
   return matches;
 }
 
+function escapeHtml(text) {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function readReplacerText(editor) {
+  if (editor.dataset.previewSource !== undefined) {
+    return editor.dataset.previewSource;
+  }
+  return editor.innerText.replace(/\r/g, '');
+}
+
+function writeReplacerText(editor, text) {
+  delete editor.dataset.previewSource;
+  editor.textContent = text;
+}
+
+function normalizeHighlightRanges(matches, textLength) {
+  const sorted = matches
+    .filter((item) => item.end > item.start)
+    .map((item) => ({
+      start: Math.max(0, Math.min(textLength, item.start)),
+      end: Math.max(0, Math.min(textLength, item.end)),
+    }))
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  if (sorted.length === 0) return [];
+  const merged = [sorted[0]];
+  for (let i = 1; i < sorted.length; i += 1) {
+    const current = sorted[i];
+    const last = merged[merged.length - 1];
+    if (current.start <= last.end) {
+      last.end = Math.max(last.end, current.end);
+      continue;
+    }
+    merged.push(current);
+  }
+  return merged;
+}
+
+function showReplacerHighlights(editor, sourceText, matches) {
+  const ranges = normalizeHighlightRanges(matches, sourceText.length);
+  if (ranges.length === 0) {
+    writeReplacerText(editor, sourceText);
+    return;
+  }
+
+  let cursor = 0;
+  const htmlParts = [];
+  ranges.forEach(({ start, end }) => {
+    if (start > cursor) {
+      htmlParts.push(escapeHtml(sourceText.slice(cursor, start)));
+    }
+    htmlParts.push(`<mark>${escapeHtml(sourceText.slice(start, end))}</mark>`);
+    cursor = end;
+  });
+  if (cursor < sourceText.length) {
+    htmlParts.push(escapeHtml(sourceText.slice(cursor)));
+  }
+
+  editor.dataset.previewSource = sourceText;
+  editor.innerHTML = htmlParts.join('');
+}
+
 function getEditingButton() {
   if (editingButtonIndex === null) {
     return replacerDraft;
@@ -1479,26 +1547,24 @@ function removeEditingButton() {
 }
 
 function runReplacementButton(buttonIndex) {
-  const textArea = document.getElementById('replacer-text');
+  const textEditor = document.getElementById('replacer-text');
   const previewMode = document.getElementById('replacer-preview-toggle').checked;
   const buttonConfig = replacerButtons[buttonIndex];
-  if (!buttonConfig) return;
+  if (!buttonConfig || !(textEditor instanceof HTMLDivElement)) return;
+  const sourceText = readReplacerText(textEditor);
 
   if (previewMode) {
-    const allMatches = buttonConfig.rules.flatMap((rule) => collectRuleMatches(textArea.value, rule));
-    if (allMatches.length > 0) {
-      const first = allMatches[0];
-      textArea.focus();
-      textArea.setSelectionRange(first.start, first.end);
-    }
+    const allMatches = buttonConfig.rules.flatMap((rule) => collectRuleMatches(sourceText, rule));
+    showReplacerHighlights(textEditor, sourceText, allMatches);
+    textEditor.focus();
     return;
   }
 
-  let nextText = textArea.value;
+  let nextText = sourceText;
   buttonConfig.rules.forEach((rule) => {
     nextText = applyRuleToText(nextText, rule);
   });
-  textArea.value = nextText;
+  writeReplacerText(textEditor, nextText);
 }
 
 function exportReplacerProfile() {
@@ -1848,6 +1914,8 @@ async function copyInvoiceSummary() {
 }
 
 function bindTextReplacer() {
+  const textEditor = document.getElementById('replacer-text');
+  const previewToggle = document.getElementById('replacer-preview-toggle');
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
   const addRule = document.getElementById('add-rule');
@@ -1855,6 +1923,16 @@ function bindTextReplacer() {
   const importButton = document.getElementById('replacer-import');
   const exportButton = document.getElementById('replacer-export');
   const editName = document.getElementById('edit-button-name');
+  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement)) return;
+
+  previewToggle.addEventListener('change', () => {
+    const isPreview = previewToggle.checked;
+    textEditor.setAttribute('contenteditable', isPreview ? 'false' : 'true');
+    textEditor.classList.toggle('is-previewing', isPreview);
+    if (!isPreview) {
+      writeReplacerText(textEditor, readReplacerText(textEditor));
+    }
+  });
 
   editTarget.addEventListener('change', () => {
     const value = editTarget.value;
