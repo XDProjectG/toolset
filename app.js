@@ -48,6 +48,9 @@ let editingButtonIndex = null;
 let replacerDraft = { name: '', rules: [] };
 let activeRemoveConfirmHost = null;
 let activeDeleteButtonConfirm = null;
+let activeTabId = 'tab-stopwatch';
+let shortcutOctaveShift = 0;
+const pressedByKeyboardCode = new Map();
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -437,6 +440,12 @@ function activateTab(tabId) {
   panels.forEach((panel) => {
     panel.hidden = panel.dataset.tabPanel !== tabId;
   });
+
+  activeTabId = tabId;
+  if (tabId !== 'tab-piano') {
+    pressedByKeyboardCode.clear();
+    stopAllPlayingNotes();
+  }
 }
 
 function bindTabs() {
@@ -740,8 +749,8 @@ function isBlackKey(midiNote) {
 
 function createShortcutMap() {
   const map = new Map();
-  const centerWhiteMidi = 60;
-  const centerBlackMidi = 61;
+  const centerWhiteMidi = 60 + (shortcutOctaveShift * 12);
+  const centerBlackMidi = 61 + (shortcutOctaveShift * 12);
   const getPreviousWhiteMidi = (midiNote) => {
     let cursor = midiNote - 1;
     while (isBlackKey(cursor)) {
@@ -1262,6 +1271,25 @@ function resolveShortcutFromKeyboardEvent(event) {
   return null;
 }
 
+function isPianoTabActive() {
+  return activeTabId === 'tab-piano';
+}
+
+function shiftShortcutOctave(direction) {
+  const { startMidi, endMidi } = getCurrentLayoutBounds();
+  const nextShift = shortcutOctaveShift + direction;
+  const nextCenterC = 60 + (nextShift * 12);
+  if (nextCenterC < startMidi || nextCenterC > endMidi) {
+    return false;
+  }
+  shortcutOctaveShift = nextShift;
+  pressedByKeyboardCode.clear();
+  stopAllPlayingNotes();
+  refreshShortcutMap();
+  renderPianoKeyboard();
+  return true;
+}
+
 function renderPianoKeyboard() {
   const keyboard = document.getElementById('piano-keyboard');
   if (!keyboard) return;
@@ -1315,7 +1343,6 @@ function bindPianoInput() {
   const instrumentSelect = document.getElementById('instrument-select');
   const keyboardSizeSelect = document.getElementById('keyboard-size-select');
   const quickLoadToggle = document.getElementById('piano-quick-load');
-  const pressedByKeyboardCode = new Map();
   const pointerToken = 'pointer';
 
   const stopPointerNote = () => {
@@ -1364,6 +1391,21 @@ function bindPianoInput() {
   });
 
   document.addEventListener('keydown', (event) => {
+    if (event.code === 'ShiftLeft') {
+      if (!isPianoTabActive() || event.repeat) return;
+      event.preventDefault();
+      shiftShortcutOctave(-1);
+      return;
+    }
+    if (event.code === 'ShiftRight') {
+      if (!isPianoTabActive() || event.repeat) return;
+      event.preventDefault();
+      shiftShortcutOctave(1);
+      return;
+    }
+    if (!isPianoTabActive()) {
+      return;
+    }
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
       return;
@@ -1380,6 +1422,9 @@ function bindPianoInput() {
   });
 
   document.addEventListener('keyup', (event) => {
+    if (!isPianoTabActive()) {
+      return;
+    }
     const target = event.target;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
       return;
@@ -1400,6 +1445,9 @@ function bindPianoInput() {
       return;
     }
     activeKeyboardSize = nextSize;
+    shortcutOctaveShift = 0;
+    pressedByKeyboardCode.clear();
+    stopAllPlayingNotes();
     refreshShortcutMap();
     renderPianoKeyboard();
   });
