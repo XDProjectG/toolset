@@ -443,16 +443,6 @@ select:focus-visible,
   z-index: 1;
   font-size: 0.8rem;
   padding: 0.3rem 0.6rem;
-<<<<<<< codex/fix-piano-tuning-and-add-dynamic-compression_2026-04-27_11-29-25
-  opacity: 0.5;
-  transition: opacity 0.18s ease;
-}
-
-.replacer-copy-plain:hover:not(:disabled),
-.replacer-copy-plain:focus-visible:not(:disabled) {
-  opacity: 1;
-=======
->>>>>>> main
 }
 
 #replacer-text {
