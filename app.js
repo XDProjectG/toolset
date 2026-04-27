@@ -2048,6 +2048,7 @@ function parseTokenOptions(tokenBody) {
   return { field, joiner, padDigits };
 }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
 function parseInvoiceDateParts(rawDate) {
   const dateText = String(rawDate ?? '').trim();
   if (!dateText) return null;
@@ -2064,6 +2065,21 @@ function parseInvoiceDateParts(rawDate) {
   if (!segments || segments.length < 3) return null;
 
   const parsedSegments = segments.slice(0, 3).map((value) => ({
+=======
+function normalizeInvoiceDateToYyyymmdd(rawDate) {
+  const dateText = String(rawDate ?? '').trim();
+  if (!dateText) return '';
+
+  if (/^\d{8}$/.test(dateText)) {
+    return dateText;
+  }
+
+  const segments = dateText.match(/\d+/g);
+  if (!segments || segments.length < 3) return dateText;
+
+  const parsedSegments = segments.slice(0, 3).map((value) => ({
+    raw: value,
+>>>>>>> main
     num: Number.parseInt(value, 10),
     len: value.length,
   }));
@@ -2082,7 +2098,11 @@ function parseInvoiceDateParts(rawDate) {
     .map((segment, index) => ({ ...segment, index }))
     .filter((segment) => segment.index !== yearIndex);
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
   if (monthDayCandidates.length !== 2) return null;
+=======
+  if (monthDayCandidates.length !== 2) return dateText;
+>>>>>>> main
 
   let month;
   let day;
@@ -2102,6 +2122,7 @@ function parseInvoiceDateParts(rawDate) {
     day = secondCandidate.num;
   }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
   if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1) return null;
 
   return { year, month, day };
@@ -2127,6 +2148,13 @@ function applyInvoiceDatePattern(parts, pattern) {
 
     return count >= 2 ? String(parts.day).padStart(2, '0') : String(parts.day);
   });
+=======
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1) {
+    return dateText;
+  }
+
+  return `${String(year).padStart(4, '0')}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+>>>>>>> main
 }
 
 function formatInvoiceDate(rawDate, dateFormat) {
@@ -2135,10 +2163,18 @@ function formatInvoiceDate(rawDate, dateFormat) {
     return String(rawDate ?? '').trim();
   }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
   const parts = parseInvoiceDateParts(rawDate);
   if (!parts) return String(rawDate ?? '').trim();
 
   return applyInvoiceDatePattern(parts, dateFormat);
+=======
+  if (formatToken === 'yyyymmdd') {
+    return normalizeInvoiceDateToYyyymmdd(rawDate);
+  }
+
+  return String(rawDate ?? '').trim();
+>>>>>>> main
 }
 
 function joinSubtotals(values, joiner) {
