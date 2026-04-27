@@ -33,7 +33,6 @@ let timerAnchorEnabled = false;
 let titleIntervalId = null;
 let pianoAudioContext = null;
 let pianoMasterGain = null;
-let pianoCompressor = null;
 const instrumentNodes = new Map();
 let activeInstrument = 'tone-piano';
 let activeKeyboardSize = 88;
@@ -52,8 +51,6 @@ let activeDeleteButtonConfirm = null;
 let activeTabId = 'tab-stopwatch';
 let shortcutOctaveShift = 0;
 const pressedByKeyboardCode = new Map();
-const C4_FREQUENCY = 440 * (2 ** (-9 / 12));
-const C4_MIDI_NOTE = 60;
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -823,18 +820,18 @@ function tuningRatio12Tet(midiNote) {
 
 function tuningRatioJustIntonation(midiNote) {
   const ratiosByPitchClass = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 45 / 32, 3 / 2, 8 / 5, 5 / 3, 9 / 5, 15 / 8];
-  const distance = midiNote - C4_MIDI_NOTE;
+  const distance = midiNote - 69;
   const octaveShift = Math.floor(distance / 12);
   const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
-  return (C4_FREQUENCY / 440) * pitchRatio * (2 ** octaveShift);
+  return pitchRatio * (2 ** octaveShift);
 }
 
 function tuningRatioPythagorean(midiNote) {
   const ratiosByPitchClass = [1, 256 / 243, 9 / 8, 32 / 27, 81 / 64, 4 / 3, 729 / 512, 3 / 2, 128 / 81, 27 / 16, 16 / 9, 243 / 128];
-  const distance = midiNote - C4_MIDI_NOTE;
+  const distance = midiNote - 69;
   const octaveShift = Math.floor(distance / 12);
   const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
-  return (C4_FREQUENCY / 440) * pitchRatio * (2 ** octaveShift);
+  return pitchRatio * (2 ** octaveShift);
 }
 
 function ratioToFrequency(ratio) {
@@ -869,16 +866,9 @@ function ensureAudioContext() {
     return null;
   }
   pianoAudioContext = new Context();
-  pianoCompressor = pianoAudioContext.createDynamicsCompressor();
-  pianoCompressor.threshold.value = -20;
-  pianoCompressor.knee.value = 20;
-  pianoCompressor.ratio.value = 12;
-  pianoCompressor.attack.value = 0.003;
-  pianoCompressor.release.value = 0.18;
   pianoMasterGain = pianoAudioContext.createGain();
   pianoMasterGain.gain.value = 0.25;
-  pianoMasterGain.connect(pianoCompressor);
-  pianoCompressor.connect(pianoAudioContext.destination);
+  pianoMasterGain.connect(pianoAudioContext.destination);
   return pianoAudioContext;
 }
 
@@ -2151,7 +2141,6 @@ async function copyInvoiceSummary() {
 
 function bindTextReplacer() {
   const textEditor = document.getElementById('replacer-text');
-  const copyPlainButton = document.getElementById('replacer-copy-plain');
   const previewToggle = document.getElementById('replacer-preview-toggle');
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
@@ -2160,11 +2149,7 @@ function bindTextReplacer() {
   const importButton = document.getElementById('replacer-import');
   const exportButton = document.getElementById('replacer-export');
   const editName = document.getElementById('edit-button-name');
-  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement)) return;
-
-  const syncPlainCopyButton = () => {
-    copyPlainButton.disabled = readReplacerText(textEditor).trim().length === 0;
-  };
+  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement)) return;
 
   previewToggle.addEventListener('change', () => {
     const isPreview = previewToggle.checked;
@@ -2172,26 +2157,6 @@ function bindTextReplacer() {
     textEditor.classList.toggle('is-previewing', isPreview);
     if (!isPreview) {
       writeReplacerText(textEditor, readReplacerText(textEditor));
-    }
-    syncPlainCopyButton();
-  });
-
-  textEditor.addEventListener('input', syncPlainCopyButton);
-  copyPlainButton.addEventListener('click', async () => {
-    const plainText = readReplacerText(textEditor);
-    if (!plainText.trim()) return;
-    try {
-      await navigator.clipboard.writeText(plainText);
-    } catch (_error) {
-      const fallbackArea = document.createElement('textarea');
-      fallbackArea.value = plainText;
-      fallbackArea.setAttribute('readonly', 'true');
-      fallbackArea.style.position = 'fixed';
-      fallbackArea.style.opacity = '0';
-      document.body.appendChild(fallbackArea);
-      fallbackArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(fallbackArea);
     }
   });
 
@@ -2256,7 +2221,6 @@ function bindTextReplacer() {
 
   renderReplacerButtons();
   renderRulesEditor();
-  syncPlainCopyButton();
 }
 
 function bindEvents() {
