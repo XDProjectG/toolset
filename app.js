@@ -33,6 +33,7 @@ let timerAnchorEnabled = false;
 let titleIntervalId = null;
 let pianoAudioContext = null;
 let pianoMasterGain = null;
+let pianoDynamicsCompressor = null;
 const instrumentNodes = new Map();
 let activeInstrument = 'tone-piano';
 let activeKeyboardSize = 88;
@@ -84,6 +85,8 @@ const TONEJS_INSTRUMENTS = {
   violin: { label: 'tonejs-instruments：Violin' },
   xylophone: { label: 'tonejs-instruments：Xylophone' },
 };
+const REFERENCE_C4_MIDI = 60;
+const REFERENCE_C4_FREQUENCY = 261.6255653005986;
 
 const INSTRUMENT_LIBRARY = {
   'tone-piano': { kind: 'sampler', label: 'Tone.js 鋼琴（Salamander）' },
@@ -820,30 +823,30 @@ function tuningRatio12Tet(midiNote) {
 
 function tuningRatioJustIntonation(midiNote) {
   const ratiosByPitchClass = [1, 16 / 15, 9 / 8, 6 / 5, 5 / 4, 4 / 3, 45 / 32, 3 / 2, 8 / 5, 5 / 3, 9 / 5, 15 / 8];
-  const distance = midiNote - 69;
-  const octaveShift = Math.floor(distance / 12);
+  const distanceFromC4 = midiNote - REFERENCE_C4_MIDI;
+  const octaveShift = Math.floor(distanceFromC4 / 12);
   const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
   return pitchRatio * (2 ** octaveShift);
 }
 
 function tuningRatioPythagorean(midiNote) {
   const ratiosByPitchClass = [1, 256 / 243, 9 / 8, 32 / 27, 81 / 64, 4 / 3, 729 / 512, 3 / 2, 128 / 81, 27 / 16, 16 / 9, 243 / 128];
-  const distance = midiNote - 69;
-  const octaveShift = Math.floor(distance / 12);
+  const distanceFromC4 = midiNote - REFERENCE_C4_MIDI;
+  const octaveShift = Math.floor(distanceFromC4 / 12);
   const pitchRatio = ratiosByPitchClass[toPitchClass(midiNote)];
   return pitchRatio * (2 ** octaveShift);
 }
 
-function ratioToFrequency(ratio) {
-  return 440 * ratio;
+function ratioToFrequency(ratio, baseFrequency = 440) {
+  return baseFrequency * ratio;
 }
 
 function builtinFrequencyForMidi(midiNote) {
   if (activeInstrument === 'builtin-just') {
-    return ratioToFrequency(tuningRatioJustIntonation(midiNote));
+    return ratioToFrequency(tuningRatioJustIntonation(midiNote), REFERENCE_C4_FREQUENCY);
   }
   if (activeInstrument === 'builtin-pythagorean') {
-    return ratioToFrequency(tuningRatioPythagorean(midiNote));
+    return ratioToFrequency(tuningRatioPythagorean(midiNote), REFERENCE_C4_FREQUENCY);
   }
   return ratioToFrequency(tuningRatio12Tet(midiNote));
 }
@@ -868,7 +871,14 @@ function ensureAudioContext() {
   pianoAudioContext = new Context();
   pianoMasterGain = pianoAudioContext.createGain();
   pianoMasterGain.gain.value = 0.25;
-  pianoMasterGain.connect(pianoAudioContext.destination);
+  pianoDynamicsCompressor = pianoAudioContext.createDynamicsCompressor();
+  pianoDynamicsCompressor.threshold.value = -18;
+  pianoDynamicsCompressor.knee.value = 24;
+  pianoDynamicsCompressor.ratio.value = 12;
+  pianoDynamicsCompressor.attack.value = 0.003;
+  pianoDynamicsCompressor.release.value = 0.25;
+  pianoMasterGain.connect(pianoDynamicsCompressor);
+  pianoDynamicsCompressor.connect(pianoAudioContext.destination);
   return pianoAudioContext;
 }
 
