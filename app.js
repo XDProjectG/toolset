@@ -2048,15 +2048,75 @@ function parseTokenOptions(tokenBody) {
   return { field, joiner, padDigits };
 }
 
-function formatInvoiceDate(rawDate, separator = '/', padDigits = null) {
-  const dateText = String(rawDate || '').trim();
-  if (!/^\d{8}$/.test(dateText)) return dateText;
-  const year = dateText.slice(0, 4);
-  const monthNum = Number.parseInt(dateText.slice(4, 6), 10);
-  const dayNum = Number.parseInt(dateText.slice(6, 8), 10);
-  const month = padDigits ? String(monthNum).padStart(padDigits, '0') : String(monthNum);
-  const day = padDigits ? String(dayNum).padStart(padDigits, '0') : String(dayNum);
-  return `${year}${separator}${month}${separator}${day}`;
+function normalizeInvoiceDateToYyyymmdd(rawDate) {
+  const dateText = String(rawDate ?? '').trim();
+  if (!dateText) return '';
+
+  if (/^\d{8}$/.test(dateText)) {
+    return dateText;
+  }
+
+  const segments = dateText.match(/\d+/g);
+  if (!segments || segments.length < 3) return dateText;
+
+  const parsedSegments = segments.slice(0, 3).map((value) => ({
+    raw: value,
+    num: Number.parseInt(value, 10),
+    len: value.length,
+  }));
+
+  let yearIndex = parsedSegments.findIndex((segment) => segment.len === 4 || segment.num > 31);
+  if (yearIndex < 0) {
+    yearIndex = 2;
+  }
+
+  const yearSegment = parsedSegments[yearIndex];
+  const year = yearSegment.len === 2
+    ? (yearSegment.num >= 70 ? 1900 + yearSegment.num : 2000 + yearSegment.num)
+    : yearSegment.num;
+
+  const monthDayCandidates = parsedSegments
+    .map((segment, index) => ({ ...segment, index }))
+    .filter((segment) => segment.index !== yearIndex);
+
+  if (monthDayCandidates.length !== 2) return dateText;
+
+  let month;
+  let day;
+  const [firstCandidate, secondCandidate] = monthDayCandidates;
+
+  if (firstCandidate.num > 12 && secondCandidate.num <= 12) {
+    day = firstCandidate.num;
+    month = secondCandidate.num;
+  } else if (secondCandidate.num > 12 && firstCandidate.num <= 12) {
+    month = firstCandidate.num;
+    day = secondCandidate.num;
+  } else if (yearIndex === 2) {
+    day = firstCandidate.num;
+    month = secondCandidate.num;
+  } else {
+    month = firstCandidate.num;
+    day = secondCandidate.num;
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1) {
+    return dateText;
+  }
+
+  return `${String(year).padStart(4, '0')}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+}
+
+function formatInvoiceDate(rawDate, dateFormat) {
+  const formatToken = String(dateFormat ?? '').trim().toLowerCase();
+  if (!formatToken) {
+    return String(rawDate ?? '').trim();
+  }
+
+  if (formatToken === 'yyyymmdd') {
+    return normalizeInvoiceDateToYyyymmdd(rawDate);
+  }
+
+  return String(rawDate ?? '').trim();
 }
 
 function joinSubtotals(values, joiner) {
@@ -2073,8 +2133,7 @@ function joinSubtotals(values, joiner) {
 function resolveInvoiceField(invoice, field, options, detailFields) {
   const headerValue = invoice.header[field];
   if (field === '發票日期') {
-    const separator = options.joiner ?? '/';
-    return formatInvoiceDate(headerValue, separator, options.padDigits);
+    return formatInvoiceDate(headerValue, options.joiner);
   }
 
   if (headerValue !== undefined) {
