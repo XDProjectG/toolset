@@ -2160,6 +2160,14 @@ function bindTextReplacer() {
     const editorRect = textEditor.getBoundingClientRect();
     const shouldFix = editorRect.top < 0 && editorRect.bottom > 0;
     copyPlainButton.classList.toggle('is-fixed', shouldFix);
+    if (!shouldFix) {
+      copyPlainButton.style.left = '';
+      return;
+    }
+
+    const horizontalInset = 12;
+    const buttonLeft = Math.max(8, editorRect.right - copyPlainButton.offsetWidth - horizontalInset);
+    copyPlainButton.style.left = `${Math.round(buttonLeft)}px`;
   };
 
   textEditor.addEventListener('input', updateCopyPlainState);

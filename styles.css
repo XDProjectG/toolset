@@ -453,7 +453,7 @@ select:focus-visible,
 .replacer-copy-plain.is-fixed {
   position: fixed;
   top: 0.75rem;
-  right: 0.75rem;
+  right: auto;
 }
 
 #replacer-text {
