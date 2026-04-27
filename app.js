@@ -2141,6 +2141,7 @@ async function copyInvoiceSummary() {
 
 function bindTextReplacer() {
   const textEditor = document.getElementById('replacer-text');
+  const copyPlainButton = document.getElementById('replacer-copy-plain');
   const previewToggle = document.getElementById('replacer-preview-toggle');
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
@@ -2149,7 +2150,45 @@ function bindTextReplacer() {
   const importButton = document.getElementById('replacer-import');
   const exportButton = document.getElementById('replacer-export');
   const editName = document.getElementById('edit-button-name');
-  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement)) return;
+  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement)) return;
+
+  const updateCopyPlainState = () => {
+    copyPlainButton.disabled = readReplacerText(textEditor).trim().length === 0;
+  };
+
+  textEditor.addEventListener('input', updateCopyPlainState);
+  const textObserver = new MutationObserver(updateCopyPlainState);
+  textObserver.observe(textEditor, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+    attributes: true,
+    attributeFilter: ['data-preview-source'],
+  });
+
+  copyPlainButton.addEventListener('click', async () => {
+    const plainText = readReplacerText(textEditor);
+    if (!plainText.trim()) {
+      updateCopyPlainState();
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(plainText);
+    } catch (_error) {
+      const fallback = document.createElement('textarea');
+      fallback.value = plainText;
+      fallback.setAttribute('readonly', 'true');
+      fallback.style.position = 'fixed';
+      fallback.style.opacity = '0';
+      fallback.style.pointerEvents = 'none';
+      document.body.appendChild(fallback);
+      fallback.focus();
+      fallback.select();
+      document.execCommand('copy');
+      fallback.remove();
+    }
+  });
 
   previewToggle.addEventListener('change', () => {
     const isPreview = previewToggle.checked;
@@ -2158,6 +2197,7 @@ function bindTextReplacer() {
     if (!isPreview) {
       writeReplacerText(textEditor, readReplacerText(textEditor));
     }
+    updateCopyPlainState();
   });
 
   editTarget.addEventListener('change', () => {
@@ -2221,6 +2261,7 @@ function bindTextReplacer() {
 
   renderReplacerButtons();
   renderRulesEditor();
+  updateCopyPlainState();
 }
 
 function bindEvents() {
