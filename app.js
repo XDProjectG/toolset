@@ -2048,6 +2048,24 @@ function parseTokenOptions(tokenBody) {
   return { field, joiner, padDigits };
 }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
+function parseInvoiceDateParts(rawDate) {
+  const dateText = String(rawDate ?? '').trim();
+  if (!dateText) return null;
+
+  if (/^\d{8}$/.test(dateText)) {
+    return {
+      year: Number.parseInt(dateText.slice(0, 4), 10),
+      month: Number.parseInt(dateText.slice(4, 6), 10),
+      day: Number.parseInt(dateText.slice(6, 8), 10),
+    };
+  }
+
+  const segments = dateText.match(/\d+/g);
+  if (!segments || segments.length < 3) return null;
+
+  const parsedSegments = segments.slice(0, 3).map((value) => ({
+=======
 function normalizeInvoiceDateToYyyymmdd(rawDate) {
   const dateText = String(rawDate ?? '').trim();
   if (!dateText) return '';
@@ -2061,6 +2079,7 @@ function normalizeInvoiceDateToYyyymmdd(rawDate) {
 
   const parsedSegments = segments.slice(0, 3).map((value) => ({
     raw: value,
+>>>>>>> main
     num: Number.parseInt(value, 10),
     len: value.length,
   }));
@@ -2079,7 +2098,11 @@ function normalizeInvoiceDateToYyyymmdd(rawDate) {
     .map((segment, index) => ({ ...segment, index }))
     .filter((segment) => segment.index !== yearIndex);
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
+  if (monthDayCandidates.length !== 2) return null;
+=======
   if (monthDayCandidates.length !== 2) return dateText;
+>>>>>>> main
 
   let month;
   let day;
@@ -2099,11 +2122,39 @@ function normalizeInvoiceDateToYyyymmdd(rawDate) {
     day = secondCandidate.num;
   }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1) return null;
+
+  return { year, month, day };
+}
+
+function applyInvoiceDatePattern(parts, pattern) {
+  const formatText = String(pattern ?? '').trim();
+  if (!formatText) return '';
+
+  return formatText.replace(/y+|m+|d+/gi, (token) => {
+    const lowerToken = token.toLowerCase();
+    const count = lowerToken.length;
+
+    if (lowerToken[0] === 'y') {
+      if (count >= 4) return String(parts.year).padStart(4, '0');
+      if (count === 2) return String(parts.year % 100).padStart(2, '0');
+      return String(parts.year);
+    }
+
+    if (lowerToken[0] === 'm') {
+      return count >= 2 ? String(parts.month).padStart(2, '0') : String(parts.month);
+    }
+
+    return count >= 2 ? String(parts.day).padStart(2, '0') : String(parts.day);
+  });
+=======
   if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1) {
     return dateText;
   }
 
   return `${String(year).padStart(4, '0')}${String(month).padStart(2, '0')}${String(day).padStart(2, '0')}`;
+>>>>>>> main
 }
 
 function formatInvoiceDate(rawDate, dateFormat) {
@@ -2112,11 +2163,18 @@ function formatInvoiceDate(rawDate, dateFormat) {
     return String(rawDate ?? '').trim();
   }
 
+<<<<<<< codex/update-invoice-date-format_2026-04-27_23-28-24
+  const parts = parseInvoiceDateParts(rawDate);
+  if (!parts) return String(rawDate ?? '').trim();
+
+  return applyInvoiceDatePattern(parts, dateFormat);
+=======
   if (formatToken === 'yyyymmdd') {
     return normalizeInvoiceDateToYyyymmdd(rawDate);
   }
 
   return String(rawDate ?? '').trim();
+>>>>>>> main
 }
 
 function joinSubtotals(values, joiner) {
