@@ -450,6 +450,12 @@ select:focus-visible,
   opacity: 1;
 }
 
+.replacer-copy-plain.is-fixed {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
 #replacer-text {
   padding: 0.6rem 0.75rem;
   border: 1px solid #cbd5e1;
