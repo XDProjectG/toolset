@@ -1,6 +1,6 @@
 import { convertMidiBufferToAbc } from './midi-to-abc.js';
 
-const BASE_TITLE = '音樂工具箱';
+const BASE_TITLE = '工具箱';
 const PIANO_LAYOUTS = {
   49: { startMidi: 36, endMidi: 84, label: 'C2–C6' },
   61: { startMidi: 36, endMidi: 96, label: 'C2–C7' },
@@ -536,7 +536,7 @@ function renderTimers() {
 function toneAt(ctx, startAt, freq, duration) {
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
-  oscillator.type = 'sine';
+  oscillator.type = 'triangle';
   oscillator.frequency.value = freq;
   gain.gain.setValueAtTime(0.0001, startAt);
   gain.gain.exponentialRampToValueAtTime(0.12, startAt + 0.02);
@@ -867,7 +867,7 @@ function ensureAudioContext() {
   }
   pianoAudioContext = new Context();
   pianoMasterGain = pianoAudioContext.createGain();
-  pianoMasterGain.gain.value = 0.46;
+  pianoMasterGain.gain.value = 0.25;
   pianoMasterGain.connect(pianoAudioContext.destination);
   return pianoAudioContext;
 }
