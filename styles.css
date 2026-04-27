@@ -432,8 +432,33 @@ select:focus-visible,
   align-items: start;
 }
 
+.replacer-text-wrap {
+  position: relative;
+}
+
+.replacer-copy-plain {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  z-index: 2;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, filter 0.18s ease, transform 0.18s ease;
+}
+
+.replacer-copy-plain:hover:not(:disabled),
+.replacer-copy-plain:focus-visible:not(:disabled) {
+  opacity: 1;
+}
+
+.replacer-copy-plain.is-fixed {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
 #replacer-text {
   padding: 0.6rem 0.75rem;
+  padding-top: 2.7rem;
   border: 1px solid #cbd5e1;
   border-radius: 0.65rem;
   background: #fff;
