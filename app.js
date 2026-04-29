@@ -2263,23 +2263,49 @@ function bindTextReplacer() {
   };
 
 
-  const syncReplacerSideViewportPosition = () => {
-    const sideRect = replacerSide.getBoundingClientRect();
-    const shouldFix = sideRect.top < 0 && sideRect.bottom > 0;
-    replacerSide.classList.toggle('is-fixed', shouldFix);
+  let replacerSideFixed = false;
+
+  const syncReplacerSideViewportPosition = (editorRect) => {
+    const shouldFix = editorRect.top < 0 && editorRect.bottom > 0;
+
     if (!shouldFix) {
-      replacerSide.style.left = '';
-      replacerSide.style.width = '';
+      if (replacerSideFixed) {
+        replacerSide.classList.remove('is-fixed');
+        replacerSide.style.left = '';
+        replacerSide.style.width = '';
+        replacerSideFixed = false;
+      }
       return;
     }
 
-    replacerSide.style.left = `${Math.round(sideRect.left)}px`;
-    replacerSide.style.width = `${Math.round(sideRect.width)}px`;
+    if (!replacerSideFixed) {
+      const sideRect = replacerSide.getBoundingClientRect();
+      replacerSide.style.left = `${Math.round(sideRect.left)}px`;
+      replacerSide.style.width = `${Math.round(sideRect.width)}px`;
+      replacerSide.classList.add('is-fixed');
+      replacerSideFixed = true;
+      return;
+    }
+
+    const fixedRect = replacerSide.getBoundingClientRect();
+    if (Math.abs(fixedRect.width - replacerSide.offsetWidth) > 0.5) {
+      replacerSide.style.width = `${Math.round(replacerSide.offsetWidth)}px`;
+    }
   };
 
   const syncTextReplacerViewportPosition = () => {
+    const editorRect = textEditor.getBoundingClientRect();
     syncCopyPlainViewportPosition();
-    syncReplacerSideViewportPosition();
+    syncReplacerSideViewportPosition(editorRect);
+  };
+
+  let syncViewportRafId = null;
+  const requestSyncTextReplacerViewportPosition = () => {
+    if (syncViewportRafId !== null) return;
+    syncViewportRafId = window.requestAnimationFrame(() => {
+      syncViewportRafId = null;
+      syncTextReplacerViewportPosition();
+    });
   };
 
   textEditor.addEventListener('input', updateCopyPlainState);
@@ -2291,8 +2317,8 @@ function bindTextReplacer() {
     attributes: true,
     attributeFilter: ['data-preview-source'],
   });
-  window.addEventListener('scroll', syncTextReplacerViewportPosition, { passive: true });
-  window.addEventListener('resize', syncTextReplacerViewportPosition);
+  window.addEventListener('scroll', requestSyncTextReplacerViewportPosition, { passive: true });
+  window.addEventListener('resize', requestSyncTextReplacerViewportPosition);
 
   syncTextReplacerViewportPosition();
 
