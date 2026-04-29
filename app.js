@@ -2234,6 +2234,7 @@ function bindTextReplacer() {
   const textEditor = document.getElementById('replacer-text');
   const copyPlainButton = document.getElementById('replacer-copy-plain');
   const previewToggle = document.getElementById('replacer-preview-toggle');
+  const replacerSide = document.querySelector('.replacer-side');
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
   const addRule = document.getElementById('add-rule');
@@ -2241,7 +2242,7 @@ function bindTextReplacer() {
   const importButton = document.getElementById('replacer-import');
   const exportButton = document.getElementById('replacer-export');
   const editName = document.getElementById('edit-button-name');
-  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement)) return;
+  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement) || !(replacerSide instanceof HTMLElement)) return;
 
   const updateCopyPlainState = () => {
     copyPlainButton.disabled = readReplacerText(textEditor).trim().length === 0;
@@ -2261,6 +2262,26 @@ function bindTextReplacer() {
     copyPlainButton.style.left = `${Math.round(buttonLeft)}px`;
   };
 
+
+  const syncReplacerSideViewportPosition = () => {
+    const sideRect = replacerSide.getBoundingClientRect();
+    const shouldFix = sideRect.top < 0 && sideRect.bottom > 0;
+    replacerSide.classList.toggle('is-fixed', shouldFix);
+    if (!shouldFix) {
+      replacerSide.style.left = '';
+      replacerSide.style.width = '';
+      return;
+    }
+
+    replacerSide.style.left = `${Math.round(sideRect.left)}px`;
+    replacerSide.style.width = `${Math.round(sideRect.width)}px`;
+  };
+
+  const syncTextReplacerViewportPosition = () => {
+    syncCopyPlainViewportPosition();
+    syncReplacerSideViewportPosition();
+  };
+
   textEditor.addEventListener('input', updateCopyPlainState);
   const textObserver = new MutationObserver(updateCopyPlainState);
   textObserver.observe(textEditor, {
@@ -2270,8 +2291,10 @@ function bindTextReplacer() {
     attributes: true,
     attributeFilter: ['data-preview-source'],
   });
-  window.addEventListener('scroll', syncCopyPlainViewportPosition, { passive: true });
-  window.addEventListener('resize', syncCopyPlainViewportPosition);
+  window.addEventListener('scroll', syncTextReplacerViewportPosition, { passive: true });
+  window.addEventListener('resize', syncTextReplacerViewportPosition);
+
+  syncTextReplacerViewportPosition();
 
   copyPlainButton.addEventListener('click', async () => {
     const plainText = readReplacerText(textEditor);
