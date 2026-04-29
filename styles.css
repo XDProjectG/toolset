@@ -494,6 +494,13 @@ select:focus-visible,
   gap: 0.6rem;
 }
 
+
+.replacer-side.is-fixed {
+  position: fixed;
+  top: 0.75rem;
+  z-index: 3;
+}
+
 .preview-toggle {
   display: inline-flex;
   align-items: center;

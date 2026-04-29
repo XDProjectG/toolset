@@ -2234,6 +2234,7 @@ function bindTextReplacer() {
   const textEditor = document.getElementById('replacer-text');
   const copyPlainButton = document.getElementById('replacer-copy-plain');
   const previewToggle = document.getElementById('replacer-preview-toggle');
+  const replacerSide = document.querySelector('.replacer-side');
   const editTarget = document.getElementById('edit-target');
   const deleteButton = document.getElementById('delete-button');
   const addRule = document.getElementById('add-rule');
@@ -2241,7 +2242,7 @@ function bindTextReplacer() {
   const importButton = document.getElementById('replacer-import');
   const exportButton = document.getElementById('replacer-export');
   const editName = document.getElementById('edit-button-name');
-  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement)) return;
+  if (!(textEditor instanceof HTMLDivElement) || !(previewToggle instanceof HTMLInputElement) || !(copyPlainButton instanceof HTMLButtonElement) || !(replacerSide instanceof HTMLElement)) return;
 
   const updateCopyPlainState = () => {
     copyPlainButton.disabled = readReplacerText(textEditor).trim().length === 0;
@@ -2261,6 +2262,52 @@ function bindTextReplacer() {
     copyPlainButton.style.left = `${Math.round(buttonLeft)}px`;
   };
 
+
+  let replacerSideFixed = false;
+
+  const syncReplacerSideViewportPosition = (editorRect) => {
+    const shouldFix = editorRect.top < 0 && editorRect.bottom > 0;
+
+    if (!shouldFix) {
+      if (replacerSideFixed) {
+        replacerSide.classList.remove('is-fixed');
+        replacerSide.style.left = '';
+        replacerSide.style.width = '';
+        replacerSideFixed = false;
+      }
+      return;
+    }
+
+    if (!replacerSideFixed) {
+      const sideRect = replacerSide.getBoundingClientRect();
+      replacerSide.style.left = `${Math.round(sideRect.left)}px`;
+      replacerSide.style.width = `${Math.round(sideRect.width)}px`;
+      replacerSide.classList.add('is-fixed');
+      replacerSideFixed = true;
+      return;
+    }
+
+    const fixedRect = replacerSide.getBoundingClientRect();
+    if (Math.abs(fixedRect.width - replacerSide.offsetWidth) > 0.5) {
+      replacerSide.style.width = `${Math.round(replacerSide.offsetWidth)}px`;
+    }
+  };
+
+  const syncTextReplacerViewportPosition = () => {
+    const editorRect = textEditor.getBoundingClientRect();
+    syncCopyPlainViewportPosition();
+    syncReplacerSideViewportPosition(editorRect);
+  };
+
+  let syncViewportRafId = null;
+  const requestSyncTextReplacerViewportPosition = () => {
+    if (syncViewportRafId !== null) return;
+    syncViewportRafId = window.requestAnimationFrame(() => {
+      syncViewportRafId = null;
+      syncTextReplacerViewportPosition();
+    });
+  };
+
   textEditor.addEventListener('input', updateCopyPlainState);
   const textObserver = new MutationObserver(updateCopyPlainState);
   textObserver.observe(textEditor, {
@@ -2270,8 +2317,10 @@ function bindTextReplacer() {
     attributes: true,
     attributeFilter: ['data-preview-source'],
   });
-  window.addEventListener('scroll', syncCopyPlainViewportPosition, { passive: true });
-  window.addEventListener('resize', syncCopyPlainViewportPosition);
+  window.addEventListener('scroll', requestSyncTextReplacerViewportPosition, { passive: true });
+  window.addEventListener('resize', requestSyncTextReplacerViewportPosition);
+
+  syncTextReplacerViewportPosition();
 
   copyPlainButton.addEventListener('click', async () => {
     const plainText = readReplacerText(textEditor);
