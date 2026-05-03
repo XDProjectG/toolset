@@ -17,6 +17,7 @@
                 <button id="tab-text-replacer" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-text-replacer" tabindex="-1">文字取代器</button>
                 <button id="tab-password-manager" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-password-manager" tabindex="-1">密碼管理器</button>
                 <button id="tab-invoice-summary" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-invoice-summary" tabindex="-1">發票摘要</button>
+                <button id="tab-market-dashboard" class="tool-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-market-dashboard" tabindex="-1">股市儀表板</button>
             </div>
         </aside>
 
@@ -283,6 +284,22 @@
                             <button id="copy-invoice-summary" type="button">複製摘要</button>
                         </div>
                     </div>
+                </article>
+            </section>
+
+            <section id="panel-market-dashboard" class="tool-panel" role="tabpanel" aria-labelledby="tab-market-dashboard" data-tab-panel="tab-market-dashboard" hidden>
+                <article class="placeholder-card market-dashboard-card">
+                    <header class="card-header market-dashboard-header">
+                        <div>
+                            <h1>股市儀表板</h1>
+                            <p class="card-description">以卡片追蹤各國股市、估值、風險、債券、匯率、貨幣供給、股票、ETF、加密貨幣與大宗商品。初始頁面僅列追蹤標的，按下更新才會爬取資料。</p>
+                        </div>
+                        <div class="dashboard-actions">
+                            <button id="dashboard-update-all" type="button">更新全部群組</button>
+                        </div>
+                    </header>
+                    <p id="dashboard-status" class="helper-text" role="status" aria-live="polite">尚未抓取資料。可先查看追蹤標的，再手動更新全部或單一群組。</p>
+                    <div id="dashboard-groups" class="dashboard-groups"></div>
                 </article>
             </section>
         </main>
