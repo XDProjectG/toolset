@@ -52,6 +52,15 @@ let activeDeleteButtonConfirm = null;
 let activeTabId = 'tab-stopwatch';
 let shortcutOctaveShift = 0;
 const pressedByKeyboardCode = new Map();
+const MARKET_DASHBOARD_GROUPS = [
+  { id: 'global-indexes', title: '各國主要股市點數', items: [{ label: '台股加權', symbol: '^TWII' }, { label: 'NYSE Composite', symbol: '^NYA' }, { label: 'NASDAQ Composite', symbol: '^IXIC' }, { label: 'S&P 500', symbol: '^GSPC' }, { label: '道瓊工業', symbol: '^DJI' }] },
+  { id: 'valuation-risk', title: '估值與風險', items: [{ label: 'VIX 指數', symbol: '^VIX' }, { label: 'Fear & Greed Index', customType: 'fear-greed' }, { label: '美股 Shiller PE', customType: 'placeholder', meta: '待串接估值資料源' }] },
+  { id: 'rates-fx-money', title: '利率、匯率與貨幣供給', items: [{ label: '美債殖利率（10Y）', symbol: '^TNX' }, { label: 'USD/TWD', symbol: 'TWD=X' }, { label: 'M1 / M2（各國）', customType: 'placeholder', meta: '待串接央行/FRED/IMF' }] },
+  { id: 'us-tech-stocks', title: '美股重點個股', items: ['NVDA','NFLX','GOOGL','META','AAPL','AVGO','AMZN','MSFT','CRWD','PLTR','TSM','INTC','AMD'].map((s) => ({ label: s, symbol: s })) },
+  { id: 'tw-etf', title: '台股 ETF 與折溢價', items: ['0050.TW','006208.TW','00713.TW','00878.TW','00631L.TW','00757.TW','00762.TW','00910.TW'].map((s) => ({ label: s.replace('.TW', ''), symbol: s })) },
+  { id: 'crypto-commodities', title: '加密貨幣與大宗商品', items: [{ label: 'BTC', symbol: 'BTC-USD' }, { label: 'ETH', symbol: 'ETH-USD' }, { label: '黃金', symbol: 'GC=F' }, { label: 'WTI 原油', symbol: 'CL=F' }] },
+];
+const dashboardCardsByKey = new Map();
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -2437,12 +2446,127 @@ function bindEvents() {
   initPiano();
   bindTextReplacer();
   bindPasswordManager();
+  initMarketDashboard();
   document.getElementById('invoice-summarize').addEventListener('click', handleInvoiceSummary);
   document.getElementById('copy-invoice-summary').addEventListener('click', copyInvoiceSummary);
 
   document.addEventListener('visibilitychange', () => {
     updateDocumentTitle(getCurrentElapsed());
   });
+}
+
+function initMarketDashboard() {
+  const groupsRoot = document.getElementById('dashboard-groups');
+  const statusEl = document.getElementById('dashboard-status');
+  const updateAllButton = document.getElementById('dashboard-update-all');
+  if (!groupsRoot || !statusEl || !updateAllButton) return;
+
+  groupsRoot.innerHTML = '';
+  dashboardCardsByKey.clear();
+  const groupEls = new Map();
+
+  MARKET_DASHBOARD_GROUPS.forEach((group) => {
+    const section = document.createElement('section');
+    section.className = 'dashboard-group';
+    section.dataset.groupId = group.id;
+
+    const header = document.createElement('header');
+    header.className = 'dashboard-group-header';
+    const title = document.createElement('h2');
+    title.textContent = group.title;
+    const updateButton = document.createElement('button');
+    updateButton.type = 'button';
+    updateButton.textContent = '更新群組';
+    updateButton.addEventListener('click', async () => {
+      await updateMarketGroup(group, updateButton, statusEl);
+    });
+    header.append(title, updateButton);
+
+    const cards = document.createElement('div');
+    cards.className = 'dashboard-cards';
+    group.items.forEach((item) => {
+      const key = `${group.id}:${item.label}`;
+      const card = document.createElement('article');
+      card.className = 'dashboard-mini-card';
+      card.innerHTML = `<h3>${item.label}</h3><p class="dashboard-value">現價 / 週 / 月 / 年：待更新</p><small class="dashboard-source">來源：${item.symbol ? `Yahoo Finance (${item.symbol})` : '官方 / Google / Yahoo（待串接）'}</small>`;
+      cards.append(card);
+      dashboardCardsByKey.set(key, { item, valueEl: card.querySelector('.dashboard-value'), sourceEl: card.querySelector('.dashboard-source') });
+    });
+
+    section.append(header, cards);
+    groupsRoot.append(section);
+    groupEls.set(group.id, section);
+  });
+
+  updateAllButton.addEventListener('click', async () => {
+    updateAllButton.disabled = true;
+    statusEl.textContent = '正在更新全部群組，請稍候...';
+    for (const group of MARKET_DASHBOARD_GROUPS) {
+      const btn = groupEls.get(group.id)?.querySelector('button');
+      await updateMarketGroup(group, btn, statusEl, false);
+    }
+    const time = new Date().toLocaleString('zh-TW', { hour12: false });
+    statusEl.textContent = `全部群組更新完成（${time}）`;
+    updateAllButton.disabled = false;
+  });
+}
+
+async function updateMarketGroup(group, triggerButton, statusEl, showDone = true) {
+  if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = true;
+  statusEl.textContent = `正在更新：${group.title}...`;
+
+  await Promise.all(group.items.map(async (item) => {
+    const refs = dashboardCardsByKey.get(`${group.id}:${item.label}`);
+    if (!refs) return;
+    try {
+      if (item.symbol) {
+        const data = await fetchYahooQuoteWithHistory(item.symbol);
+        refs.valueEl.textContent = `現價 ${formatDashboardNumber(data.current)} / 週 ${formatDashboardNumber(data.week)} / 月 ${formatDashboardNumber(data.month)} / 年 ${formatDashboardNumber(data.year)}`;
+      } else if (item.customType === 'fear-greed') {
+        const fg = await fetchFearGreedIndex();
+        refs.valueEl.textContent = `現值 ${fg.value}（${fg.label}）`;
+        refs.sourceEl.textContent = '來源：CNN Fear & Greed API';
+      } else {
+        refs.valueEl.textContent = `待接入資料源：${item.meta || '尚未設定'}`;
+      }
+    } catch (error) {
+      refs.valueEl.textContent = `更新失敗：${error instanceof Error ? error.message : '未知錯誤'}`;
+    }
+  }));
+
+  if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = false;
+  if (showDone) {
+    statusEl.textContent = `已更新群組：${group.title}（${new Date().toLocaleString('zh-TW', { hour12: false })}）`;
+  }
+}
+
+async function fetchYahooQuoteWithHistory(symbol) {
+  const quoteUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbol)}`;
+  const chartUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1y&interval=1d`;
+  const [quoteRes, chartRes] = await Promise.all([fetch(quoteUrl), fetch(chartUrl)]);
+  if (!quoteRes.ok || !chartRes.ok) throw new Error('遠端資料暫時不可用');
+  const quoteJson = await quoteRes.json();
+  const chartJson = await chartRes.json();
+  const quote = quoteJson?.quoteResponse?.result?.[0];
+  const closes = chartJson?.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.filter((n) => Number.isFinite(n)) || [];
+  const current = Number(quote?.regularMarketPrice);
+  if (!Number.isFinite(current)) throw new Error('查無現價');
+  return { current, week: closes.at(-6) ?? current, month: closes.at(-22) ?? current, year: closes.at(0) ?? current };
+}
+
+async function fetchFearGreedIndex() {
+  const response = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata');
+  if (!response.ok) throw new Error('Fear & Greed 來源不可用');
+  const json = await response.json();
+  const value = json?.fear_and_greed?.value;
+  const label = json?.fear_and_greed?.rating;
+  if (!Number.isFinite(value)) throw new Error('Fear & Greed 格式錯誤');
+  return { value, label: label || 'n/a' };
+}
+
+function formatDashboardNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '—';
 }
 
 window.addEventListener('DOMContentLoaded', () => {
