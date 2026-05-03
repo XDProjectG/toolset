@@ -52,6 +52,14 @@ let activeDeleteButtonConfirm = null;
 let activeTabId = 'tab-stopwatch';
 let shortcutOctaveShift = 0;
 const pressedByKeyboardCode = new Map();
+const MARKET_DASHBOARD_GROUPS = [
+  { id: 'global-indexes', title: '各國主要股市點數', items: ['台股加權','NYSE Composite','NASDAQ Composite','S&P 500','道瓊工業','深證成指','上證綜指','日經 225','TOPIX','KOSPI','STOXX Europe 600','德國 DAX','法國 CAC 40','英國 FTSE 100','印度 NIFTY 50','越南 VNINDEX','印尼 JKSE','MSCI Emerging Markets'] },
+  { id: 'valuation-risk', title: '估值與風險', items: ['美股 PE','美股 Shiller PE','台股 PE','台股 Shiller PE','VIX 指數','Fear & Greed Index'] },
+  { id: 'rates-fx-money', title: '利率、匯率與貨幣供給', items: ['美債價格（2Y / 10Y / 30Y）','美債殖利率（2Y / 10Y / 30Y）','台幣、人民幣、日圓、韓元、歐元、英鎊、東南亞主要匯率','台/美/中/日/韓/歐 M1','台/美/中/日/韓/歐 M2'] },
+  { id: 'us-tech-stocks', title: '美股重點個股', items: ['NVDA','NFLX','GOOGL','META','AAPL','AVGO','AMZN','MSFT','CRWD','PLTR','TSM','INTC','AMD'] },
+  { id: 'tw-etf', title: '台股 ETF 與折溢價', items: ['0050','006208','00713','00878','00631L','00757','00762','00910'] },
+  { id: 'crypto-commodities', title: '加密貨幣與大宗商品', items: ['BTC','ETH','黃金','白銀','WTI 原油','Brent 原油'] },
+];
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -2437,12 +2445,75 @@ function bindEvents() {
   initPiano();
   bindTextReplacer();
   bindPasswordManager();
+  initMarketDashboard();
   document.getElementById('invoice-summarize').addEventListener('click', handleInvoiceSummary);
   document.getElementById('copy-invoice-summary').addEventListener('click', copyInvoiceSummary);
 
   document.addEventListener('visibilitychange', () => {
     updateDocumentTitle(getCurrentElapsed());
   });
+}
+
+function initMarketDashboard() {
+  const groupsRoot = document.getElementById('dashboard-groups');
+  const statusEl = document.getElementById('dashboard-status');
+  const updateAllButton = document.getElementById('dashboard-update-all');
+  if (!groupsRoot || !statusEl || !updateAllButton) return;
+
+  groupsRoot.innerHTML = '';
+  const groupEls = new Map();
+
+  MARKET_DASHBOARD_GROUPS.forEach((group) => {
+    const section = document.createElement('section');
+    section.className = 'dashboard-group';
+    section.dataset.groupId = group.id;
+
+    const header = document.createElement('header');
+    header.className = 'dashboard-group-header';
+    const title = document.createElement('h2');
+    title.textContent = group.title;
+    const updateButton = document.createElement('button');
+    updateButton.type = 'button';
+    updateButton.textContent = '更新群組';
+    updateButton.addEventListener('click', async () => {
+      await simulateFetchGroup(group, updateButton, statusEl);
+      const time = new Date().toLocaleString('zh-TW', { hour12: false });
+      statusEl.textContent = `已更新群組：${group.title}（${time}）`;
+    });
+    header.append(title, updateButton);
+
+    const cards = document.createElement('div');
+    cards.className = 'dashboard-cards';
+    group.items.forEach((itemText) => {
+      const card = document.createElement('article');
+      card.className = 'dashboard-mini-card';
+      card.innerHTML = `<h3>${itemText}</h3><p>現價 / 週 / 月 / 年：待更新</p><small>資料來源：官方 / Google Finance / Yahoo Finance（按更新後抓取）</small>`;
+      cards.append(card);
+    });
+
+    section.append(header, cards);
+    groupsRoot.append(section);
+    groupEls.set(group.id, section);
+  });
+
+  updateAllButton.addEventListener('click', async () => {
+    updateAllButton.disabled = true;
+    statusEl.textContent = '正在更新全部群組，請稍候...';
+    for (const group of MARKET_DASHBOARD_GROUPS) {
+      const btn = groupEls.get(group.id)?.querySelector('button');
+      await simulateFetchGroup(group, btn, statusEl);
+    }
+    const time = new Date().toLocaleString('zh-TW', { hour12: false });
+    statusEl.textContent = `全部群組更新完成（${time}）`;
+    updateAllButton.disabled = false;
+  });
+}
+
+async function simulateFetchGroup(group, triggerButton, statusEl) {
+  if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = true;
+  statusEl.textContent = `正在更新：${group.title}...`;
+  await new Promise((resolve) => setTimeout(resolve, 450));
+  if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = false;
 }
 
 window.addEventListener('DOMContentLoaded', () => {
