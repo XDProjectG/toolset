@@ -62,6 +62,8 @@ const MARKET_DASHBOARD_GROUPS = [
 ];
 const dashboardCardsByKey = new Map();
 const TWSE_BATCH_API_URL = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
+const TWSE_ALLOWED_ORIGIN = 'https://www.twse.com.tw/';
+const TWSE_CORS_PROXY_URL = 'https://corsproxy.io/?';
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -2598,7 +2600,7 @@ async function fetchTwseBatchQuotes(symbols) {
   url.searchParams.set('ex_ch', exCh);
   url.searchParams.set('json', '1');
   url.searchParams.set('delay', '0');
-  const response = await fetch(url.toString());
+  const response = await fetchTwseWithCorsFallback(url);
   if (!response.ok) throw new Error('證交所資料暫時不可用');
   const json = await response.json();
   const list = Array.isArray(json?.msgArray) ? json.msgArray : [];
@@ -2609,6 +2611,23 @@ async function fetchTwseBatchQuotes(symbols) {
     map.set(code, row);
   });
   return map;
+}
+
+
+
+async function fetchTwseWithCorsFallback(url) {
+  try {
+    return await fetch(url.toString(), {
+      mode: 'cors',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      referrer: TWSE_ALLOWED_ORIGIN,
+    });
+  } catch (error) {
+    const proxyTarget = `${TWSE_CORS_PROXY_URL}${encodeURIComponent(url.toString())}`;
+    return fetch(proxyTarget, { mode: 'cors' });
+  }
 }
 
 function renderTwStockCard(refs, row) {
