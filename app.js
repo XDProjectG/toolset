@@ -61,6 +61,7 @@ const MARKET_DASHBOARD_GROUPS = [
   { id: 'crypto-commodities', title: '加密貨幣與大宗商品', items: [{ label: 'BTC', symbol: 'BTC-USD' }, { label: 'ETH', symbol: 'ETH-USD' }, { label: '黃金', symbol: 'GC=F' }, { label: 'WTI 原油', symbol: 'CL=F' }] },
 ];
 const dashboardCardsByKey = new Map();
+const TWSE_BATCH_API_URL = 'https://mis.twse.com.tw/stock/api/getStockInfo.jsp';
 
 const PASSWORD_CHARSETS = {
   lowercase: 'abcdefghijklmnopqrstuvwxyz',
@@ -2488,9 +2489,36 @@ function initMarketDashboard() {
       const key = `${group.id}:${item.label}`;
       const card = document.createElement('article');
       card.className = 'dashboard-mini-card';
-      card.innerHTML = `<h3>${item.label}</h3><p class="dashboard-value">現價 / 週 / 月 / 年：待更新</p><small class="dashboard-source">來源：${item.symbol ? `Yahoo Finance (${item.symbol})` : '官方 / Google / Yahoo（待串接）'}</small>`;
+      if (group.id === 'tw-etf') {
+        card.classList.add('tw-stock-card');
+        card.innerHTML = `
+          <div class="tw-stock-header">
+            <h3>${item.label}</h3>
+            <small class="tw-stock-meta">台股（待更新）</small>
+          </div>
+          <div class="tw-stock-main">
+            <div>
+              <p class="tw-stock-price">—</p>
+              <p class="tw-stock-change">價差 —（—）</p>
+              <small class="tw-stock-volume">成交張數：—</small>
+            </div>
+            <div class="tw-stock-kline" aria-hidden="true">—</div>
+          </div>
+          <small class="dashboard-source">來源：證交所 MIS API</small>`;
+      } else {
+        card.innerHTML = `<h3>${item.label}</h3><p class="dashboard-value">現價 / 週 / 月 / 年：待更新</p><small class="dashboard-source">來源：${item.symbol ? `Yahoo Finance (${item.symbol})` : '官方 / Google / Yahoo（待串接）'}</small>`;
+      }
       cards.append(card);
-      dashboardCardsByKey.set(key, { item, valueEl: card.querySelector('.dashboard-value'), sourceEl: card.querySelector('.dashboard-source') });
+      dashboardCardsByKey.set(key, {
+        item,
+        valueEl: card.querySelector('.dashboard-value'),
+        sourceEl: card.querySelector('.dashboard-source'),
+        metaEl: card.querySelector('.tw-stock-meta'),
+        priceEl: card.querySelector('.tw-stock-price'),
+        changeEl: card.querySelector('.tw-stock-change'),
+        volumeEl: card.querySelector('.tw-stock-volume'),
+        klineEl: card.querySelector('.tw-stock-kline'),
+      });
     });
 
     section.append(header, cards);
@@ -2515,7 +2543,10 @@ async function updateMarketGroup(group, triggerButton, statusEl, showDone = true
   if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = true;
   statusEl.textContent = `正在更新：${group.title}...`;
 
-  await Promise.all(group.items.map(async (item) => {
+  if (group.id === 'tw-etf') {
+    await updateTwStockGroup(group);
+  } else {
+    await Promise.all(group.items.map(async (item) => {
     const refs = dashboardCardsByKey.get(`${group.id}:${item.label}`);
     if (!refs) return;
     try {
@@ -2532,12 +2563,109 @@ async function updateMarketGroup(group, triggerButton, statusEl, showDone = true
     } catch (error) {
       refs.valueEl.textContent = `更新失敗：${error instanceof Error ? error.message : '未知錯誤'}`;
     }
-  }));
+    }));
+  }
 
   if (triggerButton instanceof HTMLButtonElement) triggerButton.disabled = false;
   if (showDone) {
     statusEl.textContent = `已更新群組：${group.title}（${new Date().toLocaleString('zh-TW', { hour12: false })}）`;
   }
+}
+
+
+async function updateTwStockGroup(group) {
+  const symbols = group.items.map((item) => item.symbol).filter(Boolean);
+  const dataMap = await fetchTwseBatchQuotes(symbols);
+  group.items.forEach((item) => {
+    const refs = dashboardCardsByKey.get(`${group.id}:${item.label}`);
+    if (!refs) return;
+    const data = dataMap.get(item.label);
+    if (!data) {
+      if (refs.changeEl) refs.changeEl.textContent = '更新失敗：查無報價';
+      return;
+    }
+    renderTwStockCard(refs, data);
+  });
+}
+
+async function fetchTwseBatchQuotes(symbols) {
+  const exCh = symbols.map((symbol) => {
+    const code = symbol.replace('.TW', '').replace('.TWO', '');
+    const market = symbol.endsWith('.TWO') ? 'otc' : 'tse';
+    return `${market}_${code}.tw`;
+  }).join('|');
+  const url = new URL(TWSE_BATCH_API_URL);
+  url.searchParams.set('ex_ch', exCh);
+  url.searchParams.set('json', '1');
+  url.searchParams.set('delay', '0');
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error('證交所資料暫時不可用');
+  const json = await response.json();
+  const list = Array.isArray(json?.msgArray) ? json.msgArray : [];
+  const map = new Map();
+  list.forEach((row) => {
+    const code = String(row?.c || '').trim();
+    if (!code) return;
+    map.set(code, row);
+  });
+  return map;
+}
+
+function renderTwStockCard(refs, row) {
+  const code = String(row?.c || '');
+  const market = row?.ex === 'otc' ? '上櫃' : '上市';
+  const name = row?.n || row?.nf || '';
+  const current = Number(row?.z || row?.pz);
+  const prevClose = Number(row?.y);
+  const delta = current - prevClose;
+  const pct = prevClose ? (delta / prevClose) * 100 : NaN;
+  const volumeShares = Number(row?.v || row?.tv || row?.ov);
+  const volumeLots = Number.isFinite(volumeShares) ? volumeShares.toLocaleString('zh-TW') : '—';
+
+  if (refs.metaEl) refs.metaEl.innerHTML = `${market} ${code} <span class="muted-name">${name || ''}</span>`;
+  if (refs.priceEl) refs.priceEl.textContent = Number.isFinite(current) ? current.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  if (refs.changeEl) {
+    refs.changeEl.textContent = `價差 ${formatSignedNumber(delta)}（${formatSignedPercent(pct)}）`;
+    refs.changeEl.classList.remove('is-up', 'is-down');
+    if (delta > 0) refs.changeEl.classList.add('is-up');
+    if (delta < 0) refs.changeEl.classList.add('is-down');
+  }
+  if (refs.volumeEl) refs.volumeEl.textContent = `成交張數：${volumeLots}`;
+  if (refs.klineEl) refs.klineEl.innerHTML = buildKLineSvg(row);
+}
+
+function formatSignedNumber(num) {
+  if (!Number.isFinite(num)) return '—';
+  const sign = num > 0 ? '+' : '';
+  return `${sign}${num.toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatSignedPercent(num) {
+  if (!Number.isFinite(num)) return '—';
+  const sign = num > 0 ? '+' : '';
+  return `${sign}${num.toFixed(2)}%`;
+}
+
+function buildKLineSvg(row) {
+  const open = Number(row?.o);
+  const high = Number(row?.h);
+  const low = Number(row?.l);
+  const close = Number(row?.z || row?.pz);
+  if (![open, high, low, close].every(Number.isFinite)) return '—';
+  const min = Math.min(low, open, close);
+  const max = Math.max(high, open, close);
+  const scaleY = (v) => {
+    if (max === min) return 20;
+    return 4 + ((max - v) / (max - min)) * 32;
+  };
+  const yHigh = scaleY(high);
+  const yLow = scaleY(low);
+  const yOpen = scaleY(open);
+  const yClose = scaleY(close);
+  const top = Math.min(yOpen, yClose);
+  const bodyH = Math.max(2, Math.abs(yOpen - yClose));
+  const color = close >= open ? '#dc2626' : '#16a34a';
+  return `<svg viewBox="0 0 40 40" width="40" height="40" role="img" aria-label="當日K線"><line x1="20" y1="${yHigh.toFixed(1)}" x2="20" y2="${yLow.toFixed(1)}" stroke="${color}" stroke-width="2"/><rect x="13" y="${top.toFixed(1)}" width="14" height="${bodyH.toFixed(1)}" fill="${color}" rx="1.5"/></svg>`;
 }
 
 async function fetchYahooQuoteWithHistory(symbol) {

@@ -920,3 +920,18 @@ select:focus-visible,
   margin: 0;
   color: #475569;
 }
+
+.tw-stock-card {
+  display: grid;
+  gap: 0.45rem;
+}
+.tw-stock-header { display:flex; flex-direction:column; gap:0.1rem; }
+.tw-stock-meta { color:#64748b; font-size:0.74rem; }
+.muted-name { color:#94a3b8; font-size:0.72rem; }
+.tw-stock-main { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+.tw-stock-price { margin:0; font-size:1.5rem; font-weight:700; color:#0f172a; }
+.tw-stock-change { margin:0; font-size:0.83rem; color:#475569; }
+.tw-stock-change.is-up { color:#dc2626; }
+.tw-stock-change.is-down { color:#16a34a; }
+.tw-stock-volume { color:#64748b; font-size:0.74rem; }
+.tw-stock-kline { min-width:44px; display:grid; place-items:center; }
