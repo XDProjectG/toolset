@@ -91,6 +91,15 @@
                         <div class="preset-buttons">
                             <button id="copy-abc" type="button">複製 ABC</button>
                         </div>
+                        <section class="abc-preview-section" aria-labelledby="abc-preview-title">
+                            <div class="abc-preview-header">
+                                <h2 id="abc-preview-title">樂譜預覽</h2>
+                                <span class="helper-text">由 abcjs 即時呈現</span>
+                            </div>
+                            <div id="abc-sheet" class="abc-sheet" aria-live="polite">
+                                <p class="abc-preview-placeholder">轉換完成後，樂譜會顯示在這裡。</p>
+                            </div>
+                        </section>
                     </div>
                 </article>
             </section>
@@ -306,6 +315,7 @@
     </div>
 
     <script src="https://unpkg.com/tone"></script>
+    <script src="https://cdn.jsdelivr.net/npm/abcjs@6.4.4/dist/abcjs-basic-min.js"></script>
     <script type="module" src="app.js"></script>
 </body>
 </html>

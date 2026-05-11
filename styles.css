@@ -381,6 +381,47 @@ select:focus-visible,
   min-height: 22rem;
 }
 
+.abc-preview-section {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.abc-preview-header {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+}
+
+.abc-preview-header h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.abc-sheet {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.85rem;
+  min-height: 10rem;
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.abc-sheet svg {
+  display: block;
+  max-width: 100%;
+}
+
+.abc-preview-placeholder {
+  color: #64748b;
+  margin: 0;
+}
+
+.abc-preview-warning {
+  color: #b45309;
+}
+
 .piano-card {
   display: grid;
   gap: 1rem;
