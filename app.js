@@ -10,6 +10,8 @@ const PIANO_LAYOUTS = {
 };
 const DEFAULT_VELOCITY = 0.8;
 const BLACK_KEY_RATIO = 0.62;
+const ABC_PREVIEW_STAFF_WIDTH = 760;
+const ABC_PREVIEW_MEASURES_PER_LINE = 4;
 const PIANO_SHORTCUTS = {
   whiteCenter: '1',
   whiteRight: '234567890-=qwertyuiop',
@@ -737,6 +739,12 @@ function renderAbcPreview(abcText) {
     window.ABCJS.renderAbc(sheet, abcText, {
       add_classes: true,
       responsive: 'resize',
+      staffwidth: ABC_PREVIEW_STAFF_WIDTH,
+      wrap: {
+        minSpacing: 1.8,
+        maxSpacing: 2.7,
+        preferredMeasuresPerLine: ABC_PREVIEW_MEASURES_PER_LINE,
+      },
     });
   } catch (error) {
     const warning = document.createElement('p');

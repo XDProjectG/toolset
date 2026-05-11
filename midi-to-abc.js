@@ -1,3 +1,5 @@
+const ABC_MEASURES_PER_LINE = 4;
+
 function createReader(uint8Array) {
   let offset = 0;
 
@@ -269,6 +271,7 @@ function wrapAbcBody(tokens, timeSignature, division) {
   const barTicks = division * timeSignature.numerator * (4 / timeSignature.denominator);
   let currentBarTick = 0;
   let absoluteTick = 0;
+  let measuresOnLine = 0;
   const rendered = [];
 
   tokens.forEach((token) => {
@@ -277,7 +280,11 @@ function wrapAbcBody(tokens, timeSignature, division) {
     currentBarTick += token.durationTicks;
 
     if (barTicks > 0 && absoluteTick > 0 && currentBarTick >= barTicks) {
-      rendered.push(' | ');
+      measuresOnLine += 1;
+      rendered.push(measuresOnLine >= ABC_MEASURES_PER_LINE ? ' |\n' : ' | ');
+      if (measuresOnLine >= ABC_MEASURES_PER_LINE) {
+        measuresOnLine = 0;
+      }
       currentBarTick %= barTicks;
     } else {
       rendered.push(' ');
