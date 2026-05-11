@@ -709,6 +709,43 @@ function bindTimerSettings() {
   });
 }
 
+function renderAbcPreview(abcText) {
+  const sheet = document.getElementById('abc-sheet');
+  if (!sheet) {
+    return;
+  }
+
+  sheet.replaceChildren();
+
+  if (!abcText.trim()) {
+    const placeholder = document.createElement('p');
+    placeholder.className = 'abc-preview-placeholder';
+    placeholder.textContent = '轉換完成後，樂譜會顯示在這裡。';
+    sheet.appendChild(placeholder);
+    return;
+  }
+
+  if (!window.ABCJS?.renderAbc) {
+    const warning = document.createElement('p');
+    warning.className = 'abc-preview-placeholder abc-preview-warning';
+    warning.textContent = 'abcjs 函式庫尚未載入，暫時無法呈現樂譜。';
+    sheet.appendChild(warning);
+    return;
+  }
+
+  try {
+    window.ABCJS.renderAbc(sheet, abcText, {
+      add_classes: true,
+      responsive: 'resize',
+    });
+  } catch (error) {
+    const warning = document.createElement('p');
+    warning.className = 'abc-preview-placeholder abc-preview-warning';
+    warning.textContent = error instanceof Error ? `樂譜預覽失敗：${error.message}` : '樂譜預覽失敗，請確認 ABC 內容格式。';
+    sheet.appendChild(warning);
+  }
+}
+
 async function handleMidiFileSelection(event) {
   const status = document.getElementById('midi-status');
   const output = document.getElementById('abc-output');
@@ -717,6 +754,7 @@ async function handleMidiFileSelection(event) {
   if (!file) {
     status.textContent = '請先選擇一個 MIDI 檔案。';
     output.value = '';
+    renderAbcPreview('');
     return;
   }
 
@@ -725,9 +763,11 @@ async function handleMidiFileSelection(event) {
   try {
     const arrayBuffer = await file.arrayBuffer();
     output.value = convertMidiBufferToAbc(arrayBuffer, file.name);
+    renderAbcPreview(output.value);
     status.textContent = `已完成轉換：${file.name}`;
   } catch (error) {
     output.value = '';
+    renderAbcPreview('');
     status.textContent = error instanceof Error ? error.message : '轉換失敗，請確認 MIDI 檔案格式。';
   }
 }
@@ -2438,11 +2478,13 @@ function bindEvents() {
   const secondary = document.getElementById('stopwatch-secondary');
   const midiInput = document.getElementById('midi-file');
   const copyButton = document.getElementById('copy-abc');
+  const abcOutput = document.getElementById('abc-output');
 
   primary.addEventListener('click', handlePrimaryAction);
   secondary.addEventListener('click', handleSecondaryAction);
   midiInput.addEventListener('change', handleMidiFileSelection);
   copyButton.addEventListener('click', copyAbcOutput);
+  abcOutput.addEventListener('input', () => renderAbcPreview(abcOutput.value));
 
   bindTabs();
   bindTimerSettings();
