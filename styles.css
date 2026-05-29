@@ -59,7 +59,7 @@ button {
   transition: filter 0.18s ease, transform 0.18s ease;
 }
 
-button:hover:not(:disabled) {
+button:hover:not(:disabled):not(.piano-key) {
   filter: brightness(1.08);
   transform: translateY(-1px);
 }
@@ -683,7 +683,6 @@ select:focus-visible,
 
 .piano-key.active {
   transform: translateY(2px);
-  filter: brightness(0.9);
 }
 
 .white-key {
@@ -700,6 +699,17 @@ select:focus-visible,
   border-color: #0f172a;
   color: #f8fafc;
   z-index: 2;
+}
+
+.white-key.active {
+  background: linear-gradient(180deg, #dbeafe 0%, #93c5fd 100%);
+  border-color: #3b82f6;
+}
+
+.black-key.active {
+  background: linear-gradient(180deg, #1d4ed8 0%, #2563eb 100%);
+  border-color: #1e40af;
+  color: #ffffff;
 }
 
 .key-label {
